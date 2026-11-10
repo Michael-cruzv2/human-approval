@@ -64,7 +64,7 @@ export default function LeadQueueTable({
       const detailPane = document.querySelector<HTMLElement>(".lead-detail-pane");
       const detailVisible = Boolean(detailPane?.getClientRects().length);
       if (event.key === "e" && detailVisible) {
-        const firstField = detailPane?.querySelector<HTMLInputElement>("#company_name");
+        const firstField = detailPane?.querySelector<HTMLInputElement>("#lead-company_name");
         if (firstField) {
           event.preventDefault();
           firstField.focus();
@@ -169,43 +169,87 @@ export default function LeadQueueTable({
 
   return (
     <>
-      {filters.status === "PENDING" && <div className="bulk-tools">
-        <button type="button" disabled={!selected.length} onClick={() => dialogRef.current?.showModal()}>Reject selected ({selected.length})</button>
-        <label>Shared rejection note<input value={note} onChange={(event) => setNote(event.target.value)} /></label>
-        <span role="status">{message}</span>
-      </div>}
-      <div className="lead-queue-list" role="list" aria-label="Leads to verify">{leads.map((lead) => {
-            const emailMissing = !hasValidEmail(lead.email);
-            const params = new URLSearchParams({
-              status: filters.status,
-              agent: filters.agent,
-              tag: filters.tag,
-              country: filters.country,
-              search: filters.search,
-              email: filters.email,
-              returned: String(filters.returned),
-              lead: lead.id,
-            });
-            return <article className={`lead-queue-item${selectedLeadId === lead.id ? " is-selected" : ""}`} key={lead.id} role="listitem">
-              {filters.status === "PENDING" && <input aria-label={`Select ${lead.domain}`} type="checkbox" checked={selected.includes(lead.id)} onChange={(event) => setSelected((current) => event.target.checked ? [...current, lead.id] : current.filter((id) => id !== lead.id))} />}
-              <Link className="lead-domain-link" data-lead-id={lead.id} href={`/leads?${params}`} scroll={false} aria-current={selectedLeadId === lead.id ? "true" : undefined}>
-                <span className="lead-row-title">{lead.company_name ?? lead.domain}</span>
-                <span className="lead-row-domain">{lead.domain} · {lead.country ?? "Country unknown"}</span>
-                <span className="lead-row-meta"><span className={`badge badge-${lead.agent_approval.toLowerCase()}`}>{lead.agent_approval.replaceAll("_", " ")}</span><span className="badge">{lead.antispam_tag.replaceAll("_", " ")}</span></span>
-                {emailMissing && <span className="badge badge-email-required">Email required</span>}
-                {lead.returned_from_drafts && <span className="badge badge-returned">Returned from drafts</span>}
+      {filters.status === "PENDING" && (selected.length > 0 || message) && (
+        <div className="bulk-tools">
+          <button className="btn btn-sm btn-stop" type="button" disabled={!selected.length} onClick={() => dialogRef.current?.showModal()}>
+            Reject selected ({selected.length})
+          </button>
+          <label>
+            Shared rejection note
+            <input value={note} onChange={(event) => setNote(event.target.value)} />
+          </label>
+          <span role="status">{message}</span>
+        </div>
+      )}
+      <div className="lead-queue-list" role="list" aria-label="Leads to verify">
+        {leads.map((lead) => {
+          const emailMissing = !hasValidEmail(lead.email);
+          const params = new URLSearchParams({
+            status: filters.status,
+            agent: filters.agent,
+            tag: filters.tag,
+            country: filters.country,
+            search: filters.search,
+            email: filters.email,
+            returned: String(filters.returned),
+            lead: lead.id,
+          });
+          const statusChip = lead.human_approval === "REJECTED"
+            ? { className: "badge badge-rejected", text: "Rejected" }
+            : lead.returned_from_drafts
+              ? { className: "badge badge-returned", text: "↩ Returned from drafts" }
+              : emailMissing
+                ? { className: "badge badge-email-required", text: "Email required" }
+                : lead.agent_approval === "NEEDS_REVIEW"
+                  ? { className: "badge badge-needs_review", text: "Needs review" }
+                  : { className: "badge badge-verified", text: "Verified" };
+          return (
+            <article className={`lead-queue-item${selectedLeadId === lead.id ? " is-selected" : ""}`} key={lead.id} role="listitem">
+              {filters.status === "PENDING" && (
+                <input
+                  aria-label={`Select ${lead.domain}`}
+                  type="checkbox"
+                  checked={selected.includes(lead.id)}
+                  onChange={(event) =>
+                    setSelected((current) =>
+                      event.target.checked ? [...current, lead.id] : current.filter((id) => id !== lead.id),
+                    )
+                  }
+                />
+              )}
+              <Link
+                className="lead-domain-link"
+                data-lead-id={lead.id}
+                href={`/leads?${params}`}
+                scroll={false}
+                aria-current={selectedLeadId === lead.id ? "true" : undefined}
+              >
+                <span className="lead-row-head">
+                  <span className="lead-row-title">{lead.domain}</span>
+                  <span className="lead-row-country">{lead.country ?? "—"}</span>
+                </span>
+                <span className="lead-row-domain">{lead.company_name ?? "Company unknown"}</span>
+                <span className="lead-row-meta">
+                  <span className={statusChip.className}>{statusChip.text}</span>
+                </span>
                 {lead.returned_from_drafts && lead.human_note && <small className="returned-note">{lead.human_note}</small>}
-                <time dateTime={lead.updated_at}>{updatedDateFormat.format(new Date(lead.updated_at))}</time>
               </Link>
-            </article>;
-          })}
-        {loading && Array.from({ length: 3 }, (_, index) => <div className="skeleton-card" key={`skeleton-${index}`} aria-hidden="true"><span /><span /></div>)}
-        {leads.length === 0 && !loading && <p className="empty-state">Nothing to review.</p>}
+            </article>
+          );
+        })}
+        {loading && Array.from({ length: 3 }, (_, index) => (
+          <div className="skeleton-card" key={`skeleton-${index}`} aria-hidden="true"><span /><span /></div>
+        ))}
+        {leads.length === 0 && !loading && <p className="empty-state" style={{ padding: "1.5rem 1.25rem" }}>Nothing to review.</p>}
       </div>
-      <div className="pagination">
+      <div className="queue-foot">
         <span>Showing {leads.length} of {total}</span>
         {error && <span role="alert">{error}</span>}
-        {hasMore && <button type="button" disabled={loading} onClick={loadMore}>{loading ? "Loading…" : error ? "Retry" : "Load more"}</button>}
+        {hasMore && (
+          <button className="btn btn-sm" type="button" disabled={loading} onClick={loadMore}>
+            {loading ? "Loading…" : error ? "Retry" : "Load more"}
+          </button>
+        )}
       </div>
       <dialog ref={dialogRef} className="confirm-dialog">
         <h2>Reject {selected.length} leads?</h2>
