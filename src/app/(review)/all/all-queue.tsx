@@ -26,11 +26,61 @@ type Filters = {
   search: string;
 };
 
-const lastUpdatedFormat = new Intl.DateTimeFormat("en-GB", {
-  dateStyle: "medium",
-  timeStyle: "short",
+const updatedFormat = new Intl.DateTimeFormat("en-GB", {
+  day: "numeric",
+  month: "short",
+  hour: "2-digit",
+  minute: "2-digit",
   timeZone: "UTC",
 });
+
+function agentChip(value: string) {
+  if (value === "VERIFIED") return { className: "badge badge-verified", label: "Verified" };
+  if (value === "NEEDS_REVIEW") return { className: "badge badge-needs_review", label: "Needs review" };
+  if (value === "REJECTED") return { className: "badge badge-rejected", label: "Rejected" };
+  return { className: "badge", label: value.toLowerCase() };
+}
+
+function leadChip(value: string) {
+  if (value === "APPROVED") return { className: "badge badge-approved", label: "Approved" };
+  if (value === "REJECTED") return { className: "badge badge-rejected", label: "Rejected" };
+  if (value === "ARCHIVED") return { className: "badge", label: "Archived" };
+  return { className: "badge badge-pending", label: "Pending" };
+}
+
+function draftCell(value: string) {
+  if (value === "PENDING") return <span className="badge badge-needs_review">Pending review</span>;
+  if (value === "APPROVED") return <span className="badge badge-approved">Approved</span>;
+  if (value === "REJECTED") return <span className="badge badge-rejected">Rejected</span>;
+  return <span className="muted">None</span>;
+}
+
+function sendCell(value: string) {
+  if (value === "SENT") return <span className="badge badge-done">Sent</span>;
+  if (value === "SENDING") return <span className="badge badge-attention">Sending</span>;
+  return <span className="muted">Not queued</span>;
+}
+
+function ActionLink({ lead, back }: { lead: AllLead; back: string }) {
+  if (lead.lead_status === "PENDING" || lead.lead_status === "REJECTED") {
+    return (
+      <Link className="row-action" href={`/leads/${lead.id}`}>
+        {lead.lead_status === "REJECTED" ? "Reopen in Leads" : "Open in Leads"}
+      </Link>
+    );
+  }
+  if (lead.lead_status === "APPROVED") {
+    const href = lead.draft_id
+      ? `/drafts?view=to-review&draft=${lead.draft_id}`
+      : `/drafts?view=awaiting-draft&lead=${lead.id}`;
+    return <Link className="row-action is-drafts" href={href}>Open in Drafts</Link>;
+  }
+  return (
+    <Link className="row-action is-muted" scroll={false} href={`/all/${lead.id}?back=${encodeURIComponent(back)}`}>
+      Full data
+    </Link>
+  );
+}
 
 export default function AllQueue({
   leads: initialLeads,
@@ -61,22 +111,17 @@ export default function AllQueue({
       cursorId: last.id,
     });
     try {
-      const response = await fetch(`/api/all?${nextParams}`, {
-        cache: "no-store",
-      });
+      const response = await fetch(`/api/all?${nextParams}`, { cache: "no-store" });
       const result = (await response.json()) as {
         leads?: AllLead[];
         hasMore?: boolean;
         message?: string;
       };
-      if (!response.ok || !result.leads)
-        throw new Error(result.message ?? "Could not load more leads.");
+      if (!response.ok || !result.leads) throw new Error(result.message ?? "Could not load more leads.");
       setLeads((current) => [...current, ...result.leads!]);
       setHasMore(Boolean(result.hasMore));
     } catch (caught) {
-      setError(
-        caught instanceof Error ? caught.message : "Could not load more leads.",
-      );
+      setError(caught instanceof Error ? caught.message : "Could not load more leads.");
     } finally {
       setLoading(false);
     }
@@ -88,73 +133,60 @@ export default function AllQueue({
         <table>
           <thead>
             <tr>
-              <th>Domain</th>
-              <th>Company</th>
+              <th>Lead</th>
               <th>Country</th>
-              <th>Agent verdict</th>
+              <th>Agent</th>
               <th>Lead status</th>
               <th>Email</th>
               <th>Draft</th>
-              <th>Send</th>
-              <th>Last updated</th>
+              <th>Sending</th>
+              <th>Updated</th>
               <th><span className="visually-hidden">Actions</span></th>
             </tr>
           </thead>
           <tbody>
-            {leads.map((lead) => (
-              <tr key={lead.id}>
-                <td>
-                  <Link
-                    scroll={false}
-                    href={`/all/${lead.id}?back=${encodeURIComponent(backToAll)}`}
-                  >
-                    {lead.domain}
-                  </Link>
-                </td>
-                <td>{lead.company_name ?? "—"}</td>
-                <td>{lead.country ?? "—"}</td>
-                <td>{lead.agent_approval}</td>
-                <td>{lead.lead_status}</td>
-                <td>{lead.email_present ? "Present" : "Missing"}</td>
-                <td>{lead.draft_status.toLowerCase()}</td>
-                <td>{lead.send_status.toLowerCase()}</td>
-                <td>
-                  <time dateTime={lead.updated_at}>
-                    {lastUpdatedFormat.format(new Date(lead.updated_at))}
-                  </time>
-                </td>
-                <td>
-                  <Link className="all-open-link" scroll={false} href={`/all/${lead.id}?back=${encodeURIComponent(backToAll)}`}>
-                    View
-                  </Link>
-                </td>
+            {leads.map((lead) => {
+              const agent = agentChip(lead.agent_approval);
+              const status = leadChip(lead.lead_status);
+              return (
+                <tr key={lead.id}>
+                  <td>
+                    <span className="cell-lead">
+                      <Link scroll={false} href={`/all/${lead.id}?back=${encodeURIComponent(backToAll)}`}>
+                        <strong>{lead.domain}</strong>
+                      </Link>
+                      <span>{lead.company_name ?? "—"}</span>
+                    </span>
+                  </td>
+                  <td data-label="Country">{lead.country ?? "—"}</td>
+                  <td data-label="Agent"><span className={agent.className}>{agent.label}</span></td>
+                  <td data-label="Lead status"><span className={status.className}>{status.label}</span></td>
+                  <td data-label="Email">
+                    {lead.email_present
+                      ? <span>Present</span>
+                      : <span className="badge badge-email-required">Missing</span>}
+                  </td>
+                  <td data-label="Draft">{draftCell(lead.draft_status)}</td>
+                  <td data-label="Sending">{sendCell(lead.send_status)}</td>
+                  <td data-label="Updated" className="lead-num">{updatedFormat.format(new Date(lead.updated_at))}</td>
+                  <td className="cell-action"><ActionLink lead={lead} back={backToAll} /></td>
+                </tr>
+              );
+            })}
+            {loading && Array.from({ length: 3 }, (_, index) => (
+              <tr className="skeleton-row" key={`skeleton-${index}`} aria-hidden="true">
+                <td colSpan={9}><span /></td>
               </tr>
             ))}
-            {loading &&
-              Array.from({ length: 3 }, (_, index) => (
-                <tr
-                  className="skeleton-row"
-                  key={`skeleton-${index}`}
-                  aria-hidden="true"
-                >
-                  <td colSpan={10}>
-                    <span />
-                  </td>
-                </tr>
-              ))}
           </tbody>
         </table>
-        {leads.length === 0 && (
-          <p className="empty-state">Nothing to review.</p>
-        )}
+        {leads.length === 0 && <p className="empty-state" style={{ padding: "1.5rem 0.875rem" }}>No leads match these filters.</p>}
       </div>
       <div className="pagination">
-        <span>
-          Showing {leads.length} of {total}
-        </span>
+        <span className="muted">Showing {leads.length} of {total}</span>
         {error && <span role="alert">{error}</span>}
         {hasMore && (
-          <button type="button" disabled={loading} onClick={loadMore}>
+          <button className="btn btn-sm" type="button" disabled={loading} onClick={loadMore}>
             {loading ? "Loading…" : error ? "Retry" : "Load more"}
           </button>
         )}
