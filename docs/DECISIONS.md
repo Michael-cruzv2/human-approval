@@ -35,13 +35,14 @@ Agents: add Open questions here, never guess. The owner answers; move answered i
 - O6 Should the admin be able to change `settings` (sending switches, ceilings) from this app? Default: read-only display; the owner changes them directly in the database or Trigger.dev.
 - O7 Draft redraft flow: a rejected draft needs the Drafter to create a new version. Should the Review App have a "request redraft" action? Default: no; the Drafter picks up approved leads with no live draft.
 - O8 The repository does not define which anti-spam tags are allowed for drafting. The Leads readiness checklist marks this as needing policy confirmation and does not infer an allowlist; decide the allowed tags before treating the checklist as a complete readiness gate.
+- O11 The design mocks show `country`, `language` and `timezone` as select menus in the lead detail form, but the repository has no allowed-value lists and `docs/DATA_CONTRACT.md` treats them as free-text editable facts. They stay text inputs with the existing trimming and length validation. Confirm whether fixed lists exist (and where they live) before switching the controls to selects.
 
 ## Rules review evidence (T19 in progress)
 - R1: OTP-only Mailgun adapter in `src/lib/server/auth/email.ts`; app source scan rejects writes to `email_sends`, `email_attempts`, and `suppressions` (`tests/static-contract.test.mjs`).
 - R2–R3: lead and draft actions use exact status strings in their APIs; lead and draft approval endpoints are separate.
 - R4: `src/app/api/drafts/[id]/actions/route.ts` compares the submitted `contentHash` in the approval `UPDATE`; stale hashes return 409.
 - R5: `db/schema.sql` owns the draft text reset trigger; app edits only `subject`, `body_text`, and `last_edited_by`, then reports the reset.
-- R6: `lead-controls.tsx`, `lead-queue-table.tsx`, and `draft-review.tsx` use explicit native confirmation dialogs; only lead rejection has a bulk route.
+- R6: `lead-detail-view.tsx`, `lead-queue-table.tsx`, and `draft-review.tsx` use explicit native confirmation dialogs; only lead rejection has a bulk route.
 - R7: state changes use `writeAudit` within `withTransaction`; acting user comes from `getApiSessionUser`.
 - R8: lead and draft revoke endpoints read `email_sends` and block `SENDING`/`SENT`; they never write that table.
 - R9: `db/002_review_app.sql` has the approved-lead reset trigger; the edit view warns about email changes.
@@ -61,6 +62,7 @@ T19 remains open until the database-backed and manual scenarios in `docs/TESTING
 ## UI contract change log
 - 2026-11-10: Adopted `docs/UI_SKILL.md` as the controlling UI brief. Replaced the prior two-tab model with Leads, Drafts and All; added email-gated lead approval, draft send-back, and keyset pagination. Updated `RULES.md`, `DATA_CONTRACT.md`, and `UI_SPEC.md` accordingly.
 - 2026-11-10: Applied the visual system in `docs/UI_SKILL.md`: neutral editorial surfaces, job-specific accents, responsive master-detail queues, a read-only All drawer, and light/dark themes.
+- 2026-11-10: Aligned the built UI to the mocks in `design/` end to end (Leads queue and detail, Drafts workspace, All, Import, History, Audit, Users, login, phones and dark mode). Leads and Drafts now share one compact two-column queue row, Drafts sub-views use an outlined plum chip, the phone top bar keeps only Leads/Drafts/All with the utility links in the user menu, and the pipeline rail plus table scrolling are replaced on phones. Functionality the mocks omit (bulk reject, admin links, advanced lead filters, native confirmation dialogs) is kept, since the product contract requires it.
 
 ## Open implementation questions
 - O10 `SESSION_SECRET` is required by `docs/SECURITY.md`, but the auth contract defines opaque random sessions stored as SHA-256 hashes and does not define a use for this secret. Keep validating it at startup; clarify before using it for another purpose.

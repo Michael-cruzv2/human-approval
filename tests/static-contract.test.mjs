@@ -104,12 +104,14 @@ test("import commit requires the previewed file and stores fixed review states",
 
 test("lead approval requires a valid email in the UI, server action, and additive database guard", async () => {
   const action = await readFile(path.join(root, "src/app/api/leads/[id]/actions/route.ts"), "utf8");
-  const controls = await readFile(path.join(root, "src/app/(review)/leads/[id]/lead-controls.tsx"), "utf8");
+  const controls = await readFile(path.join(root, "src/app/(review)/leads/[id]/lead-detail-view.tsx"), "utf8");
   const migration = await readFile(path.join(root, "db/003_approval_requires_email.sql"), "utf8");
   assert.match(action, /isValidReviewEmail\(lead\.email\)/);
   assert.match(action, /EMAIL_REQUIRED/);
-  assert.match(controls, /disabled=\{!emailIsValid/);
+  assert.match(controls, /const approveBlocked = !emailIsValid \|\| dirty/);
+  assert.match(controls, /disabled=\{approveBlocked\}/);
   assert.match(controls, /Add an email to approve/);
+  assert.match(controls, /<dialog/);
   assert.match(migration, /human_approval <> 'APPROVED'[\s\S]*email IS NOT NULL[\s\S]*email = lower\(email\)[\s\S]*email ~ /);
   const dbLayer = await readFile(path.join(root, "src/lib/server/db/index.ts"), "utf8");
   assert.match(dbLayer, /chk_approved_lead_has_valid_email/);

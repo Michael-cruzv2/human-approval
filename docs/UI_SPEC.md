@@ -8,9 +8,12 @@ Follow [UI_SKILL.md](./UI_SKILL.md) for all interface structure, behaviour and s
 - Pair editorial serif headings with a clean sans-serif interface. Keep surfaces flat, shadows minimal, corners restrained, and motion subtle.
 - Maintain the same hierarchy in dark mode with dark neutral surfaces and accessible contrast. Do not use gradients or decorative dashboards.
 - Leads and Drafts use a desktop master-detail workspace and switch to separate queue/detail views on mobile. All detail opens as a dismissible read-only drawer while preserving the overview state.
+- Filter controls are pill chips: solid teal for the active Leads filter, an outlined plum chip for the active Drafts sub-view, and neutral chips on All. Queue rows place the domain and company on the left and the country/status chip on the right at every width.
+- On phones the leads/drafts queue stays a single scrolling list, the six-step pipeline rail is hidden, and wide tables (All, History, Audit, Users) become stacked cards with a label per value instead of scrolling sideways.
 
 ## Navigation
 Top bar: **Leads · Drafts · All · Import · History** and (admin only) **Users · Audit**. The app opens on Leads; All is the overview. User menu: name, role, log out, log out everywhere.
+On phones the top bar keeps only **Leads · Drafts · All**; Import, History and the admin links move into the user menu so the three review tabs stay reachable. Desktop is unchanged.
 
 ## `/login` and `/login/verify`
 - Email field, "Send code". Generic confirmation message (R18). Then a 6-digit code field with a resend button (disabled during the 60 s cooldown). Clear, non-technical errors: "Code incorrect or expired."
