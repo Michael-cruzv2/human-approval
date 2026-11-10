@@ -14,6 +14,7 @@ type AwaitingDraftLead = {
   draft_id: null;
   domain: string;
   company_name: string | null;
+  country: string | null;
   email: string;
   version: null;
   human_approval: string;
@@ -22,9 +23,18 @@ type AwaitingDraftLead = {
   total_count: number;
 };
 
+function SearchIcon() {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <circle cx="7" cy="7" r="4.2" stroke="currentColor" strokeWidth="1.3" />
+      <path d="m10.2 10.2 2.8 2.8" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 async function getAwaitingDraftLead(id: string, search: string): Promise<AwaitingDraftLead | undefined> {
   const result = await query<AwaitingDraftLead>(
-    `SELECT l.id, l.id AS lead_id, NULL::uuid AS draft_id, l.domain, l.company_name, l.email,
+    `SELECT l.id, l.id AS lead_id, NULL::uuid AS draft_id, l.domain, l.company_name, l.country, l.email,
             NULL::integer AS version, 'AWAITING_DRAFT' AS human_approval,
             to_char(l.updated_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS updated_at,
             NULL::text AS editor_name, 1::int AS total_count
@@ -59,39 +69,74 @@ export default async function DraftsPage({ searchParams }: { searchParams: Promi
     ? selected ?? await getAwaitingDraftLead(selectedItemId, search)
     : undefined;
   const returnHref = `/drafts?${new URLSearchParams({ view, search })}`;
+  const total = rows[0]?.total_count ?? 0;
+
   return (
-    <section className="page-stack">
-      <header className="page-heading draft-page-heading"><div><p className="eyebrow">Email text review</p><h1>Drafts</h1><p>Review wording for approved leads. Customer details stay read-only.</p></div><span className="queue-total">{counts["to-review"]} to review</span></header>
-      <nav className="subview-tabs draft-subview-tabs" aria-label="Draft queue views">
-        <Link aria-current={view === "to-review" ? "page" : undefined} href="/drafts?view=to-review">To review <span>{counts["to-review"]}</span></Link>
-        <Link aria-current={view === "awaiting-draft" ? "page" : undefined} href="/drafts?view=awaiting-draft">Awaiting draft <span>{counts["awaiting-draft"]}</span></Link>
-        <Link aria-current={view === "approved" ? "page" : undefined} href="/drafts?view=approved">Approved <span>{counts.approved}</span></Link>
-      </nav>
-      <form className="panel filters draft-filters" action="/drafts">
-        <input type="hidden" name="view" value={view} />
-        <label>Find a company or domain<input name="search" defaultValue={search} maxLength={100} /></label>
-        <button type="submit">Apply</button>
-      </form>
-      <div className="drafts-workspace" data-has-selection={Boolean(hasSelection)}>
-        <section className="draft-queue-pane">
+    <div className="drafts-workspace" data-has-selection={hasSelection}>
+      <section className="draft-queue-pane" aria-label="Drafts to review">
+        <div className="queue-head">
+          <div className="queue-head-row">
+            <h2>Emails to review</h2>
+            <span className="badge badge-drafts-count">{counts["to-review"]} pending</span>
+          </div>
+          <form className="queue-search" action="/drafts" role="search">
+            <SearchIcon />
+            <input type="hidden" name="view" value={view} />
+            <input
+              type="search"
+              name="search"
+              maxLength={100}
+              defaultValue={search}
+              placeholder="Search company or subject"
+              aria-label="Search company or subject"
+            />
+          </form>
+        </div>
+        <nav className="filter-chips draft-subview-chips" aria-label="Draft queue views">
+          <Link aria-current={view === "to-review" ? "page" : undefined} href={`/drafts?${new URLSearchParams({ view: "to-review", search })}`}>
+            To review <span>{counts["to-review"]}</span>
+          </Link>
+          <Link aria-current={view === "awaiting-draft" ? "page" : undefined} href={`/drafts?${new URLSearchParams({ view: "awaiting-draft", search })}`}>
+            Awaiting draft <span>{counts["awaiting-draft"]}</span>
+          </Link>
+          <Link aria-current={view === "approved" ? "page" : undefined} href={`/drafts?${new URLSearchParams({ view: "approved", search })}`}>
+            Approved <span>{counts.approved}</span>
+          </Link>
+        </nav>
         <DraftQueue
           drafts={rows}
           view={view}
           search={search}
-          total={rows[0]?.total_count ?? 0}
+          total={total}
           hasMore={result.rows.length > 25}
           selectedItemId={selectedItemId}
         />
-        </section>
-        <section className="draft-detail-pane" aria-label="Selected draft">
-          {view === "awaiting-draft" ? selectedAwaitingLead ? (
-            <div className="page-stack awaiting-detail">
-              <header className="page-heading"><div><Link className="mobile-back-link" href={returnHref}>Back to drafts</Link><p className="eyebrow">Approved lead</p><h2>{selectedAwaitingLead.company_name ?? selectedAwaitingLead.domain}</h2></div><span className="badge badge-awaiting">Awaiting draft</span></header>
-              <section className="panel"><p>The lead is approved and has a valid recipient email. A draft has not arrived yet.</p><dl className="facts-grid"><div className="fact"><dt>Domain</dt><dd>{selectedAwaitingLead.domain}</dd></div><div className="fact"><dt>Recipient</dt><dd>{selectedAwaitingLead.email}</dd></div></dl><Link className="text-link-button" href={`/all/${selectedAwaitingLead.lead_id}`}>Open lead details</Link></section>
-            </div>
-          ) : <p className="empty-state">Select an item to review.</p> : selectedItemId ? <DraftDetailContent id={selectedItemId} embedded returnHref={returnHref} /> : <p className="empty-state">Select an item to review.</p>}
-        </section>
-      </div>
-    </section>
+      </section>
+      <section className="draft-detail-pane" aria-label="Selected draft">
+        {view === "awaiting-draft" ? selectedAwaitingLead ? (
+          <div className="page-stack awaiting-detail">
+            <header className="detail-head">
+              <div>
+                <Link className="mobile-back-link" href={returnHref}>← Emails</Link>
+                <h1>{selectedAwaitingLead.company_name ?? selectedAwaitingLead.domain}</h1>
+                <div className="detail-chips">
+                  <span className="badge badge-awaiting">Awaiting draft</span>
+                </div>
+              </div>
+            </header>
+            <section className="panel">
+              <p>The lead is approved and has a valid recipient email. A draft has not arrived yet.</p>
+              <dl className="facts-grid">
+                <div className="fact"><dt>Domain</dt><dd>{selectedAwaitingLead.domain}</dd></div>
+                <div className="fact"><dt>Recipient</dt><dd>{selectedAwaitingLead.email}</dd></div>
+              </dl>
+              <Link className="btn" href={`/all/${selectedAwaitingLead.lead_id}`}>Open lead details</Link>
+            </section>
+          </div>
+        ) : <p className="empty-state">Select an item to review.</p> : selectedItemId ? (
+          <DraftDetailContent id={selectedItemId} embedded returnHref={returnHref} />
+        ) : <p className="empty-state">Nothing to review.</p>}
+      </section>
+    </div>
   );
 }

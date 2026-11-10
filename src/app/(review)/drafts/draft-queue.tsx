@@ -9,6 +9,7 @@ type DraftQueueItem = {
   draft_id: string | null;
   domain: string;
   company_name: string | null;
+  country: string | null;
   email: string;
   version: number | null;
   human_approval: string;
@@ -16,10 +17,16 @@ type DraftQueueItem = {
   editor_name: string | null;
 };
 
-const updatedDateFormat = new Intl.DateTimeFormat("en-GB", {
-  dateStyle: "medium",
-  timeZone: "UTC",
-});
+const dayFormat = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", timeZone: "UTC" });
+const timeFormat = new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: "UTC" });
+
+function writtenLabel(value: string): string {
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.valueOf())) return "—";
+  const now = new Date();
+  const sameDay = parsed.toISOString().slice(0, 10) === now.toISOString().slice(0, 10);
+  return sameDay ? `today ${timeFormat.format(parsed)}` : `${dayFormat.format(parsed)}, ${timeFormat.format(parsed)}`;
+}
 
 export default function DraftQueue({
   drafts: initialDrafts,
@@ -53,24 +60,17 @@ export default function DraftQueue({
       cursorId: last.id,
     });
     try {
-      const response = await fetch(`/api/drafts/queue?${params}`, {
-        cache: "no-store",
-      });
+      const response = await fetch(`/api/drafts/queue?${params}`, { cache: "no-store" });
       const result = (await response.json()) as {
         drafts?: DraftQueueItem[];
         hasMore?: boolean;
         message?: string;
       };
-      if (!response.ok || !result.drafts)
-        throw new Error(result.message ?? "Could not load more drafts.");
+      if (!response.ok || !result.drafts) throw new Error(result.message ?? "Could not load more drafts.");
       setDrafts((current) => [...current, ...result.drafts!]);
       setHasMore(Boolean(result.hasMore));
     } catch (caught) {
-      setError(
-        caught instanceof Error
-          ? caught.message
-          : "Could not load more drafts.",
-      );
+      setError(caught instanceof Error ? caught.message : "Could not load more drafts.");
     } finally {
       setLoading(false);
     }
@@ -83,31 +83,44 @@ export default function DraftQueue({
           const itemId = draft.draft_id ?? draft.lead_id;
           const params = new URLSearchParams({ view, search, [view === "awaiting-draft" ? "lead" : "draft"]: itemId });
           const href = `/drafts?${params}`;
-          return <article className={`draft-queue-item${selectedItemId === itemId ? " is-selected" : ""}`} key={draft.id} role="listitem">
-            <Link href={href} scroll={false} aria-current={selectedItemId === itemId ? "true" : undefined}>
-              <span className="draft-row-title">{draft.company_name ?? draft.domain}</span>
-              <span className="draft-row-domain">{draft.domain}</span>
-              <span className="draft-row-email">{draft.email}</span>
-              <span className="draft-row-meta">
-                <span className={`badge ${view === "awaiting-draft" ? "badge-awaiting" : draft.human_approval === "APPROVED" ? "badge-approved" : "badge-pending"}`}>
-                  {view === "awaiting-draft" ? "Awaiting draft" : draft.human_approval.replaceAll("_", " ")}
+          const status =
+            view === "awaiting-draft"
+              ? { className: "badge badge-awaiting", label: "Awaiting draft" }
+              : draft.human_approval === "APPROVED"
+                ? { className: "badge badge-approved", label: "Approved" }
+                : { className: "badge badge-pending", label: "Pending" };
+          const subtitle =
+            view === "awaiting-draft"
+              ? `Approved ${writtenLabel(draft.updated_at)}`
+              : `Draft ${draft.version ?? 1}, written ${writtenLabel(draft.updated_at)}`;
+          return (
+            <article className={`draft-queue-item${selectedItemId === itemId ? " is-selected" : ""}`} key={draft.id} role="listitem">
+              <Link href={href} scroll={false} aria-current={selectedItemId === itemId ? "true" : undefined}>
+                <span className="lead-row-head">
+                  <span className="lead-row-title">{draft.company_name ?? draft.domain}</span>
+                  <span className="lead-row-country">{draft.country ?? "—"}</span>
                 </span>
-                {draft.version !== null && <span>Version {draft.version}</span>}
-              </span>
-              <small>Updated {updatedDateFormat.format(new Date(draft.updated_at))}</small>
-            </Link>
-          </article>;
+                <span className="draft-row-domain">{subtitle}</span>
+                <span className="lead-row-meta">
+                  {draft.version !== null && draft.version > 1 && <span className="badge badge-new">New version</span>}
+                  <span className={status.className}>{status.label}</span>
+                </span>
+              </Link>
+            </article>
+          );
         })}
-        {loading && Array.from({ length: 3 }, (_, index) => <div className="skeleton-card" key={`skeleton-${index}`} aria-hidden="true"><span /><span /></div>)}
-        {drafts.length === 0 && <p className="empty-state">Nothing to review.</p>}
+        {loading && Array.from({ length: 3 }, (_, index) => (
+          <div className="skeleton-card" key={`skeleton-${index}`} aria-hidden="true"><span /><span /></div>
+        ))}
+        {drafts.length === 0 && !loading && (
+          <p className="empty-state" style={{ padding: "1.5rem 1.25rem" }}>Nothing to review.</p>
+        )}
       </div>
-      <div className="pagination">
-        <span>
-          Showing {drafts.length} of {total}
-        </span>
+      <div className="queue-foot">
+        <span>Showing {drafts.length} of {total}</span>
         {error && <span role="alert">{error}</span>}
         {hasMore && (
-          <button type="button" disabled={loading} onClick={loadMore}>
+          <button className="btn btn-sm" type="button" disabled={loading} onClick={loadMore}>
             {loading ? "Loading…" : error ? "Retry" : "Load more"}
           </button>
         )}

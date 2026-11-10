@@ -17,9 +17,11 @@ type Draft = {
   editor_name: string | null;
   email: string | null;
   domain: string;
+  site_url: string | null;
   company_name: string | null;
   country: string | null;
   antispam_tag: string;
+  template_version: string | null;
   lead_approval: string;
   lead_archived: boolean;
 };
@@ -28,9 +30,56 @@ function validEmail(value: string | null): boolean {
   return Boolean(value && value === value.toLowerCase() && /^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/.test(value));
 }
 
+function safeUrl(href: string | null): string | null {
+  if (!href) return null;
+  try {
+    const url = new URL(href);
+    return url.protocol === "https:" || url.protocol === "http:" ? url.href : null;
+  } catch {
+    return null;
+  }
+}
+
+function CheckIcon() {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <path d="M3.5 8.5 6.5 11.5 12.5 4.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function CrossIcon() {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <path d="M4.5 4.5l7 7m0-7-7 7" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function MailIcon() {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <rect x="2" y="3.5" width="12" height="9" rx="1.5" stroke="currentColor" strokeWidth="1.2" />
+      <path d="m2.8 4.6 5.2 3.9 5.2-3.9" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function InfoIcon() {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.2" />
+      <path d="M8 7.2v3.4M8 5.4v.6" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+const STEPS = ["Found", "Agent checked", "Lead approved", "Draft written", "Draft reviewed", "Sent"];
+
 export default function DraftReview({ draft, embedded = false, returnHref = "/drafts?view=to-review" }: { draft: Draft; embedded?: boolean; returnHref?: string }) {
   const router = useRouter();
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const subjectRef = useRef<HTMLInputElement>(null);
   const [subject, setSubject] = useState(draft.subject);
   const [body, setBody] = useState(draft.body_text);
   const [savedSubject, setSavedSubject] = useState(draft.subject);
@@ -44,6 +93,8 @@ export default function DraftReview({ draft, embedded = false, returnHref = "/dr
   const [leadChanged, setLeadChanged] = useState(false);
   const dirty = subject !== savedSubject || body !== savedBody;
   const draftCanBeReviewed = draft.lead_approval === "APPROVED" && !draft.lead_archived && validEmail(draft.email) && !leadChanged;
+  const siteHref = safeUrl(draft.site_url);
+  const editable = approval === "PENDING" && draftCanBeReviewed;
 
   useEffect(() => {
     let active = true;
@@ -81,6 +132,27 @@ export default function DraftReview({ draft, embedded = false, returnHref = "/dr
     };
   }, [draft.id, draft.email]);
 
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      const target = event.target;
+      if (target instanceof HTMLElement && (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName))) return;
+      if (dialogRef.current?.open || !editable) return;
+      if (event.key === "e") {
+        event.preventDefault();
+        subjectRef.current?.focus();
+      } else if (event.key === "a" && !dirty) {
+        event.preventDefault();
+        openAction("approve");
+      } else if (event.key === "r" && !dirty) {
+        event.preventDefault();
+        openAction("reject");
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editable, dirty]);
+
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setBusy(true);
@@ -101,7 +173,7 @@ export default function DraftReview({ draft, embedded = false, returnHref = "/dr
       setSavedBody(body);
       if (result.contentHash) setContentHash(result.contentHash);
       if (result.approvalReset) setApproval("PENDING");
-      setMessage(result.approvalReset ? "Saved. Editing the text reset its approval to PENDING." : "Draft saved.");
+      setMessage(result.approvalReset ? "Saved. Editing the text reset its approval to Pending." : "Draft saved.");
       router.refresh();
     } catch {
       setMessage("Could not save draft changes.");
@@ -114,9 +186,7 @@ export default function DraftReview({ draft, embedded = false, returnHref = "/dr
     if (!action) return;
     setBusy(true);
     setMessage("");
-    const requestBody = action === "approve"
-      ? { action, contentHash }
-      : { action, note };
+    const requestBody = action === "approve" ? { action, contentHash } : { action, note };
     try {
       const response = await fetch(`/api/drafts/${draft.id}/actions`, {
         method: "POST",
@@ -172,66 +242,214 @@ export default function DraftReview({ draft, embedded = false, returnHref = "/dr
 
   return (
     <section className={`page-stack draft-review-content${embedded ? " embedded-detail" : ""}`}>
-      <header className="page-heading">
-        <div>{embedded && <Link className="mobile-back-link" href={returnHref}>Back to drafts</Link>}<p className="eyebrow">Draft review · Version {draft.version}</p><h1>{draft.company_name ?? draft.domain}</h1></div>
-        {!embedded && <Link href={returnHref}>Back to drafts</Link>}
+      <header className="detail-head">
+        <div>
+          {embedded && <Link className="mobile-back-link" href={returnHref}>← Emails</Link>}
+          <h1>Review email</h1>
+          <div className="draft-head-meta">
+            <span className="badge badge-pending">Draft {draft.version}</span>
+            {draft.template_version && <span className="chip chip-quiet">Template {draft.template_version}</span>}
+            {approval === "APPROVED" && <span className="badge badge-approved">Approved</span>}
+            {approval === "REJECTED" && <span className="badge badge-rejected">Rejected</span>}
+            {editable && (dirty
+              ? <span className="editing-chip">Unsaved changes</span>
+              : <span className="verified-mark"><CheckIcon /> All changes saved</span>)}
+          </div>
+        </div>
+        {editable && dirty && (
+          <div className="detail-actions">
+            <button className="btn btn-ghost" type="button" disabled={busy} onClick={() => { setSubject(savedSubject); setBody(savedBody); }}>
+              Cancel
+            </button>
+            <button className="btn btn-drafts" type="submit" form="draft-form" disabled={busy}>
+              {busy ? "Saving…" : "Save changes"}
+            </button>
+          </div>
+        )}
       </header>
+
       {(leadChanged || draft.lead_approval !== "APPROVED" || draft.lead_archived || !validEmail(draft.email)) && (
         <aside className="notice" role="alert">
           <strong>{!validEmail(draft.email) ? "Email required" : "The lead changed. Review again"}</strong>
           <p>Approval is unavailable until the lead is current and has a valid approved email.</p>
-          <button type="button" onClick={() => window.location.reload()}>Refresh review</button>
+          <button className="btn btn-sm" type="button" onClick={() => window.location.reload()}>Refresh review</button>
         </aside>
       )}
-      <section className="panel lead-strip">
-        <div><strong>{draft.company_name ?? draft.domain}</strong><span>{draft.domain}</span></div>
-        <span>{draft.country ?? "Country unknown"}</span>
-        <span className="recipient-chip">Recipient · {draft.email ?? "No email address"}</span>
-        <span className="badge" title="Screening aid only; not legal clearance">{draft.antispam_tag}</span>
-        <Link href={`/all/${draft.lead_id}`}>Open lead</Link>
-      </section>
-      {draft.lead_approval === "APPROVED" && approval === "PENDING" && (
+
+      <ol className="pipeline-rail" aria-label="Draft progress">
+        {STEPS.map((step, index) => (
+          <li key={step} data-complete={index < 4} data-current={index === 4} aria-current={index === 4 ? "step" : undefined}>
+            <span aria-hidden="true" />
+            {step}
+          </li>
+        ))}
+      </ol>
+
+      <div className="detail-grid">
         <div className="page-stack">
-          <section className="panel">
-            <h2>Outreach draft</h2>
-            <p className="draft-meta">Last edited by {draft.editor_name ?? "—"}</p>
-            {draft.ai_opener && <div><h3>AI opener · read only</h3><pre>{draft.ai_opener}</pre></div>}
-            <form className="draft-editor" onSubmit={save}>
-              <label>Recipient email<input value={draft.email ?? ""} readOnly /></label>
-              <label>Subject<input value={subject} onChange={(event) => setSubject(event.target.value)} maxLength={1000} /></label>
-              <label>Body<textarea className="draft-body" value={body} onChange={(event) => setBody(event.target.value)} maxLength={30000} /></label>
-              <p>Footer is added automatically when sent.</p>
-              {dirty && <strong>Unsaved changes</strong>}
-              <div className="action-row">
-                <button type="submit" disabled={busy || !dirty}>Save draft</button>
-                <button type="button" disabled={busy || dirty || !draftCanBeReviewed} onClick={() => openAction("approve")}>Approve…</button>
-                <button type="button" disabled={busy || dirty || !draftCanBeReviewed} onClick={() => openAction("reject")}>Reject draft…</button>
-                <button type="button" disabled={busy || dirty || !draftCanBeReviewed} onClick={() => openAction("return")}>Reject and send lead back to verification…</button>
-              </div>
+          <section className="panel draft-panel">
+            <label className="field" htmlFor="draft-recipient">
+              To
+              <span className="recipient-field">
+                <MailIcon />
+                <input id="draft-recipient" value={draft.email ?? ""} readOnly aria-label="Recipient email, read only" />
+                <Link className="change-link" href={`/all/${draft.lead_id}`}>Change it in the lead</Link>
+              </span>
+            </label>
+            <form id="draft-form" className="draft-editor" onSubmit={save} noValidate>
+              <label htmlFor="draft-subject">
+                Subject
+                <input
+                  ref={subjectRef}
+                  id="draft-subject"
+                  value={subject}
+                  maxLength={1000}
+                  readOnly={!editable}
+                  onChange={(event) => setSubject(event.target.value)}
+                />
+              </label>
+              {draft.ai_opener && (
+                <div className="opener-block">
+                  <p className="eyebrow">Opening line written by AI. Read only.</p>
+                  <p>{draft.ai_opener}</p>
+                </div>
+              )}
+              <label htmlFor="draft-body">
+                Message
+                <textarea
+                  id="draft-body"
+                  className="draft-body"
+                  value={body}
+                  maxLength={30000}
+                  readOnly={!editable}
+                  onChange={(event) => setBody(event.target.value)}
+                />
+              </label>
             </form>
+            <p className="footer-note">
+              <InfoIcon />
+              Footer with sender name, company and address is added automatically when sent. {body.length} characters.
+            </p>
+            {draft.editor_name && <p className="muted">Last edited by {draft.editor_name}</p>}
           </section>
         </div>
-      )}
-      {approval === "APPROVED" && <section className="panel">
-        <p>Status: <strong>APPROVED</strong></p><p>Recipient: {draft.email}</p><h2>{draft.subject}</h2><pre>{draft.body_text}</pre>
-        <button type="button" disabled={!draftCanBeReviewed} onClick={() => openAction("revoke")}>Revoke approval…</button>
-      </section>}
-      {approval === "REJECTED" && <section className="panel">
-        <p>Status: <strong>REJECTED</strong></p><p>Recipient: {draft.email}</p><h2>{draft.subject}</h2><pre>{draft.body_text}</pre>
-        <p>Rejected drafts are final. The Drafter creates any new version.</p>
-      </section>}
+
+        <div className="page-stack">
+          <section className="panel">
+            <div className="section-head">
+              <h2>About this lead</h2>
+            </div>
+            <div className="about-lead">
+              <dl>
+                <dt>Company</dt><dd>{draft.company_name ?? "—"}</dd>
+                <dt>Site</dt><dd>{siteHref ? <a href={siteHref} target="_blank" rel="noopener noreferrer">{draft.domain}</a> : draft.domain}</dd>
+                <dt>Country</dt><dd>{draft.country ?? "—"}</dd>
+                <dt>Anti-spam</dt><dd>{draft.antispam_tag.replaceAll("_", " ").toLowerCase()}</dd>
+              </dl>
+              <Link className="btn btn-sm" href={`/all/${draft.lead_id}`}>Open lead</Link>
+            </div>
+            <p className="section-foot">Read only. Customer details are fixed in the Leads tab.</p>
+          </section>
+
+          {approval === "APPROVED" && (
+            <section className="panel">
+              <div className="section-head"><h2>Approved</h2></div>
+              <p className="muted">This email is approved and waiting to be sent. Editing the text sends it back for review.</p>
+              <div className="action-row" style={{ marginTop: "0.75rem" }}>
+                <button className="btn btn-stop" type="button" disabled={!draftCanBeReviewed} onClick={() => openAction("revoke")}>
+                  Revoke approval
+                </button>
+              </div>
+            </section>
+          )}
+
+          {approval === "REJECTED" && (
+            <section className="panel">
+              <div className="section-head"><h2>Rejected</h2></div>
+              <p className="muted">Rejected drafts are final. The Drafter creates any new version.</p>
+              {draft.human_note && <p className="section-foot">{draft.human_note}</p>}
+            </section>
+          )}
+        </div>
+      </div>
+
       <p className="form-message" role="status" aria-live="polite">{message}</p>
+
+      {editable && (
+        <div className="action-bar draft-action-bar">
+          <div className="keyhints">
+            <span><kbd>e</kbd> edit message</span>
+            <span><kbd>a</kbd> approve</span>
+            <span><kbd>r</kbd> reject</span>
+          </div>
+          <div className="action-bar-group">
+            {dirty && <span className="blocked-reason">Save your edits before approving</span>}
+            <button className="btn btn-stop" type="button" disabled={dirty} onClick={() => openAction("return")}>
+              Reject and send lead back
+            </button>
+            <button className="btn btn-stop" type="button" disabled={dirty} onClick={() => openAction("reject")}>
+              <CrossIcon /> Reject draft
+            </button>
+            <button className="btn btn-drafts" type="button" disabled={dirty} onClick={() => openAction("approve")}>
+              <CheckIcon /> Approve email
+            </button>
+          </div>
+        </div>
+      )}
+
       <dialog ref={dialogRef} className="confirm-dialog" onCancel={() => { setAction(null); setNote(""); }}>
-        <h2>{action === "reject" ? "Reject draft?" : action === "return" ? "Reject and return lead?" : action === "revoke" ? "Revoke draft approval?" : "Approve this draft?"}</h2>
-        <p>Confirm the exact email text and recipient before continuing.</p>
-        {action === "return" && <p>The draft will be rejected and the lead returned to Pending verification. This note will be saved on both records.</p>}
-        <dl><div><dt>Recipient</dt><dd>{draft.email ?? "—"}</dd></div><div><dt>Anti-spam tag</dt><dd>{draft.antispam_tag} — screening aid only, not legal clearance</dd></div></dl>
-        <h3>{subject}</h3><pre>{body}</pre>
-        <p className="draft-hash">Content version: <code>{contentHash}</code></p>
-        {(action === "reject" || action === "return") && <label>Note<textarea value={note} required onChange={(event) => setNote(event.target.value)} /></label>}
+        <h2>
+          {action === "approve" && "Approve this email?"}
+          {action === "reject" && "Reject this draft?"}
+          {action === "return" && "Send this lead back to verification?"}
+          {action === "revoke" && "Revoke draft approval?"}
+        </h2>
+        {action === "approve" && (
+          <>
+            <p>Approval covers exactly this text. Any later edit sends it back for review.</p>
+            <dl>
+              <div><dt>To</dt><dd>{draft.email ?? "—"}</dd></div>
+              <div><dt>Anti-spam</dt><dd>{draft.antispam_tag.replaceAll("_", " ").toLowerCase()}</dd></div>
+              <div><dt>Length</dt><dd>{body.length} characters</dd></div>
+            </dl>
+            <div className="preview">
+              <h3>{subject}</h3>
+              <div className="body">{body}</div>
+            </div>
+            <p className="section-foot">The footer is added automatically when sent. Esc closes this window.</p>
+          </>
+        )}
+        {action === "reject" && (
+          <>
+            <p>The draft is rejected and the lead stays approved. The Drafter writes a new version.</p>
+            <label>
+              What needs fixing? · Required
+              <textarea value={note} required onChange={(event) => setNote(event.target.value)} />
+            </label>
+          </>
+        )}
+        {action === "return" && (
+          <>
+            <p>The draft is rejected and {draft.company_name ?? draft.domain} returns to the Leads tab to be checked again. This note is saved on both records.</p>
+            <label>
+              What needs fixing? · Required
+              <textarea value={note} required onChange={(event) => setNote(event.target.value)} />
+            </label>
+          </>
+        )}
+        {action === "revoke" && (
+          <p>Revoking returns this draft to review. It is blocked once sending has started.</p>
+        )}
         <div className="dialog-actions">
           <button type="button" onClick={() => dialogRef.current?.close()}>Cancel</button>
-          <button type="button" disabled={busy || ((action === "reject" || action === "return") && !note.trim())} onClick={confirmAction}>{busy ? "Saving…" : "Confirm"}</button>
+          <button
+            type="button"
+            className={action === "reject" || action === "return" || action === "revoke" ? "btn-stop" : undefined}
+            disabled={busy || ((action === "reject" || action === "return") && !note.trim())}
+            onClick={confirmAction}
+          >
+            {busy ? "Saving…" : action === "approve" ? "Approve email" : action === "return" ? "Send lead back" : action === "reject" ? "Reject draft" : "Revoke approval"}
+          </button>
         </div>
       </dialog>
     </section>

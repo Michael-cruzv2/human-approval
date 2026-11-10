@@ -9,7 +9,8 @@ type DraftDetail = {
   id: string; lead_id: string; version: number; subject: string; body_text: string; ai_opener: string | null;
   content_hash: string; human_approval: string;
   human_note: string | null; created_at: Date; editor_name: string | null; email: string | null;
-  domain: string; company_name: string | null; country: string | null; antispam_tag: string;
+  domain: string; site_url: string | null; company_name: string | null; country: string | null;
+  antispam_tag: string; template_version: string | null;
   lead_approval: string; lead_archived: boolean;
 };
 
@@ -17,8 +18,8 @@ export async function DraftDetailContent({ id, embedded = false, returnHref = "/
   if (!z.uuid().safeParse(id).success) notFound();
   const result = await query<DraftDetail>(
     `SELECT d.id, d.lead_id, d.version, d.subject, d.body_text, d.ai_opener,
-            d.content_hash, d.human_approval, d.human_note,
-            d.created_at, u.name AS editor_name, l.email, l.domain, l.company_name, l.country,
+            d.content_hash, d.human_approval, d.human_note, d.template_version,
+            d.created_at, u.name AS editor_name, l.email, l.domain, l.site_url, l.company_name, l.country,
             l.antispam_tag, l.human_approval AS lead_approval, l.archived AS lead_archived
        FROM drafts d JOIN leads l ON l.id=d.lead_id
        LEFT JOIN users u ON u.id=d.last_edited_by

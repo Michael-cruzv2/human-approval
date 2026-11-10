@@ -8,6 +8,7 @@ export type DraftQueueRow = {
   draft_id: string | null;
   domain: string;
   company_name: string | null;
+  country: string | null;
   email: string;
   version: number | null;
   human_approval: string;
@@ -26,7 +27,7 @@ export async function getDraftQueuePage(
 ) {
   if (view === "awaiting-draft") {
     return query<DraftQueueRow>(
-      `SELECT l.id, l.id AS lead_id, NULL::uuid AS draft_id, l.domain, l.company_name, l.email,
+      `SELECT l.id, l.id AS lead_id, NULL::uuid AS draft_id, l.domain, l.company_name, l.country, l.email,
               NULL::integer AS version, 'AWAITING_DRAFT' AS human_approval,
               to_char(l.updated_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS updated_at,
               NULL::text AS editor_name, count(*) OVER()::int AS total_count
@@ -41,7 +42,7 @@ export async function getDraftQueuePage(
   }
   const approval = view === "approved" ? "APPROVED" : "PENDING";
   return query<DraftQueueRow>(
-    `SELECT d.id, d.lead_id, d.id AS draft_id, l.domain, l.company_name, l.email, d.version,
+    `SELECT d.id, d.lead_id, d.id AS draft_id, l.domain, l.company_name, l.country, l.email, d.version,
             d.human_approval,
             to_char(d.updated_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS updated_at,
             u.name AS editor_name, count(*) OVER()::int AS total_count
