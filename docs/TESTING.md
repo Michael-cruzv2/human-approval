@@ -1,6 +1,6 @@
 # TESTING.md
 
-Tests run against a **throwaway Postgres** (local container or a disposable Neon branch) created from `db/schema.sql` + `db/002_review_app.sql`. Never against production. Use a fake email provider.
+Tests run against a **throwaway Postgres** (local container or a disposable Neon branch) created from `db/schema.sql` + `db/002_review_app.sql` + `db/003_approval_requires_email.sql`. Never against production. Use a fake email provider.
 
 Run `npm test` for repository-level route-guard, ownership, audit-transaction, origin-check, escaping, secret-ignore, import parsing, and template checks. These checks supplement the database-backed scenarios below; they do not replace them.
 
@@ -21,6 +21,10 @@ Run `npm test` for repository-level route-guard, ownership, audit-transaction, o
 - Lead with `agent_approval = 'REJECTED'` cannot be approved and never appears in the queue.
 - Approval stores the session user and a timestamp, never a client-supplied user.
 - Editing `email` on an approved lead resets it to `PENDING` (trigger) and the response says so.
+- Approve is disabled with the stated reason for a missing/invalid email, and the server rejects an approval even when called directly; the database rejects a direct approved update without a valid lowercase email.
+- After approval, the lead disappears from Leads. A pending draft appears in Drafts only if its lead is approved and has a valid email.
+- Returning a draft to Leads changes the draft and lead in one transaction or changes neither; both notes and both audit entries are written. A return is blocked if sending has started.
+- Lead, Drafts and All Load more cursors neither repeat nor skip rows across pages and preserve active filters.
 - Bulk reject works; there is no bulk approve endpoint.
 
 ### Drafts
@@ -28,6 +32,7 @@ Run `npm test` for repository-level route-guard, ownership, audit-transaction, o
 - Editing text of an approved draft resets approval and clears `approved_hash` (trigger).
 - Draft cannot be approved when its lead is not `APPROVED`.
 - Revoke is blocked when an `email_sends` row for the lead is `SENDING` or `SENT`; allowed when `QUEUED`/`RETRY_WAIT`/none.
+- Draft rejection has separate reject-only and reject-and-return actions; both require a note.
 - Rejected draft cannot be re-approved (final); a new version row from the Drafter appears in the queue.
 - Draft text containing HTML or `<script>` is displayed as text.
 
@@ -43,7 +48,7 @@ Run `npm test` for repository-level route-guard, ownership, audit-transaction, o
 
 ### Ownership and audit
 - A test scans the codebase for SQL touching forbidden tables/columns (`ls_*`, `email_sends` writes, and `agent_approval` updates; only the fixed R20 import insert is allowed).
-- Every state-changing action creates exactly one `audit_log` row in the same transaction; `details` contains no emails, phones or draft text.
+- Every state transition has its corresponding `audit_log` row in the same transaction; send-back writes `DRAFT_REJECT` and `LEAD_RETURNED` for the two changed entities. `details` contains no emails, phones or draft text.
 - No log line contains an OTP, token or email address (test with a log capture).
 
 ### Startup

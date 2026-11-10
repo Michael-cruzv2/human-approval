@@ -13,7 +13,7 @@ export async function register(): Promise<void> {
       throw error;
     }
     throw new Error(
-      "Review App startup check failed. Verify local environment settings and apply db/schema.sql followed by db/002_review_app.sql.",
+      "Review App startup check failed. Verify local environment settings and apply db/schema.sql, db/002_review_app.sql, and db/003_approval_requires_email.sql.",
     );
   }
 }

@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { query } from "@/lib/server/db";
 import LeadControls from "./lead-controls";
 import { z } from "zod";
+import { isValidReviewEmail } from "@/lib/server/review/email";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +15,7 @@ type LeadDetail = {
   is_shopify: boolean | null; has_mobile_app: boolean | null; app_signals: unknown; evidence: unknown;
   confidence: number | null; agent_approval: string; agent_reason: string | null; human_approval: string;
   human_note: string | null; archived: boolean; added_at: Date;
+  returned_from_drafts: boolean;
 };
 
 function normalizeSafeUrl(href: string | null): string | null {
@@ -45,7 +47,18 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
             address, country, country_confidence, language, currency, timezone, niche,
             contact_page_url, contact_form_url, socials, antispam_tag, anti_spam_regime,
             antispam_note, is_shopify, has_mobile_app, app_signals, evidence, confidence,
-            agent_approval, agent_reason, human_approval, human_note, archived, added_at
+            agent_approval, agent_reason, human_approval, human_note, archived, added_at,
+            EXISTS (
+              SELECT 1 FROM audit_log returned
+               WHERE returned.entity='lead' AND returned.entity_id=leads.id
+                 AND returned.action='LEAD_RETURNED'
+                 AND NOT EXISTS (
+                   SELECT 1 FROM audit_log later
+                    WHERE later.entity='lead' AND later.entity_id=leads.id
+                      AND later.action IN ('APPROVE','REJECT','REOPEN','REVOKE')
+                      AND later.created_at > returned.created_at
+                 )
+            ) AS returned_from_drafts
        FROM leads WHERE id = $1`, [id],
   );
   const lead = result.rows[0];
@@ -53,7 +66,8 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
   const evidence = typeof lead.evidence === "object" && lead.evidence !== null ? lead.evidence as Record<string, unknown> : {};
   return (
     <section className="page-stack">
-      <header className="page-heading"><div><p className="eyebrow">Lead detail</p><h1>{lead.company_name ?? lead.domain}</h1></div><span>{lead.human_approval}</span></header>
+      <header className="page-heading"><div><p className="eyebrow">Lead detail</p><h1>{lead.company_name ?? lead.domain}</h1>{!isValidReviewEmail(lead.email) && <span className="badge badge-email-required">Email required</span>}{lead.returned_from_drafts && <span className="badge badge-returned">Returned from drafts</span>}</div><span>{lead.human_approval}</span></header>
+      {lead.returned_from_drafts && lead.human_note && <aside className="notice"><strong>Returned from drafts</strong><p>{lead.human_note}</p></aside>}
       {lead.agent_approval === "NEEDS_REVIEW" && <aside className="notice"><strong>Agent verification needs review.</strong><p>{lead.agent_reason ?? "No reason provided."}</p><p>Not sendable until the agent verdict is VERIFIED. Screening is a review aid, not legal clearance.</p></aside>}
       <section className="panel"><h2>Lead facts</h2><dl className="facts-grid">
         <Fact label="Domain" value={lead.domain} /><Fact label="Website" value={<SafeLink href={lead.site_url}>{lead.site_url}</SafeLink>} />

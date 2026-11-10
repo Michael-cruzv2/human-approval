@@ -17,7 +17,7 @@ auth:
   cookie_name: "__Host-session"
 
 review:
-  lead_queue_page_size: 50
+  lead_queue_page_size: 25
   draft_queue_page_size: 25
   require_note_on_reject: true
   allow_bulk_reject_leads: true

@@ -15,23 +15,24 @@ Mark each task `[x]` when done. Keep tasks small. If blocked, log an Open questi
 - [x] T8 Security headers, Origin check, `no-store`, error pages with request ID.
 
 ## Phase 2: leads
-- [x] T9 Leads list + filters + detail view (read only).
+- [x] T9 Leads queue + filters + detail view, with email-required approval and 25-row keyset loading.
 - [x] T10 Edit allowed fact fields with validation; show reset warning for approved leads (R9).
 - [x] T11 Approve / reject / revoke / reopen / archive with confirm dialogs, transactions and audit rows. Bulk reject.
 
 ## Phase 3: drafts
-- [x] T12 Drafts list + review view (read only) joined to lead facts.
+- [x] T12 Drafts subviews and review view joined to approved, email-valid lead facts.
 - [x] T13 Edit and save subject/body; show reset-to-pending behaviour (R5).
-- [x] T14 Approve with `content_hash` compare-and-set, confirm dialog, conflict handling (R4, R6). Reject and revoke with R8 check against `email_sends`.
+- [x] T14 Approve with `content_hash` compare-and-set, confirm dialog, conflict handling (R4, R6); reject, send-back, and revoke with R8 checks.
 
 ## Phase 4: import, history, dashboard
 - [x] T15 Excel import per `docs/IMPORT.md` including template download.
 - [x] T16 History and audit views (admin audit).
-- [x] T17 Dashboard counts.
+- [x] T17 Dashboard counts (superseded by the All overview in the revised UI contract).
+- [x] T21 Read-only All overview with filters, full-data view, and 25-row keyset Load more.
 
 ## Phase 5: quality
 - [ ] T18 Tests per `docs/TESTING.md`; fix failures.
-- [ ] T19 Rules review: walk `docs/RULES.md` R1 to R27 and note evidence for each in `docs/DECISIONS.md` under "Rules review".
+- [ ] T19 Rules review: walk `docs/RULES.md` R1 to R29 and note evidence for each in `docs/DECISIONS.md` under "Rules review".
 - [x] T20 README for the app repo: setup, env vars, how to apply SQL, how to seed the first admin, how to deploy to Vercel.
 
 T18 and T19 remain open until the database-backed and manual scenarios in `docs/TESTING.md` pass. The current repository test suite covers static contracts and import parsing/template behavior only.

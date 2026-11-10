@@ -1,6 +1,6 @@
 :root {
   color-scheme: light dark;
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: "Avenir Next", Avenir, "Segoe UI", sans-serif;
   background: #f5f6f8;
   color: #17202b;
 }
@@ -146,6 +146,7 @@ h1 {
 .review-header nav { display: flex; flex: 1; flex-wrap: wrap; gap: 0.35rem; }
 .review-header nav a { padding: 0.45rem 0.6rem; border-radius: 0.35rem; color: inherit; text-decoration: none; }
 .review-header nav a:hover { background: #eef2f7; }
+.review-header nav a[aria-current="page"] { color: #155e63; background: #e6f4f2; font-weight: 700; }
 .user-menu { display: flex; align-items: center; gap: 0.6rem; font-size: 0.85rem; }
 .user-menu .auth-action { min-height: 2.25rem; margin: 0; padding: 0 0.75rem; }
 .review-main { width: min(100%, 90rem); margin: 0 auto; padding: 1.5rem; }
@@ -170,6 +171,25 @@ th { font-size: 0.82rem; white-space: nowrap; }
 .badge-verified { background: #dcfce7; color: #166534; }
 .badge-needs_review { background: #fef3c7; color: #854d0e; }
 .empty-state { padding: 1rem 0; color: #536273; }
+.pagination { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 0.75rem; padding: 1rem 0 0.25rem; color: #536273; font-size: 0.9rem; }
+.pagination button, .text-link-button, .lead-strip button { min-height: 2.45rem; display: inline-flex; align-items: center; padding: 0.45rem 0.9rem; border: 1px solid #b8c5cc; border-radius: 999px; background: #f7fbfa; color: #155e63; cursor: pointer; font: inherit; font-weight: 700; text-decoration: none; }
+.pagination button:disabled { cursor: not-allowed; opacity: 0.6; }
+.subview-tabs { display: flex; gap: 0.5rem; flex-wrap: wrap; border-bottom: 1px solid #d7dce3; }
+.subview-tabs a { display: inline-flex; align-items: center; gap: 0.55rem; padding: 0.75rem 1rem; color: inherit; text-decoration: none; border-bottom: 2px solid transparent; }
+.subview-tabs a[aria-current="page"] { color: #155e63; border-color: #155e63; font-weight: 700; }
+.subview-tabs span { display: inline-grid; min-width: 1.5rem; height: 1.5rem; place-items: center; border-radius: 999px; background: #eef2f3; font-size: 0.78rem; }
+.badge-email-required { background: #fff0e8; color: #994515; }
+.badge-returned { margin-top: 0.25rem; background: #e8f4f0; color: #155e63; }
+.returned-note { display: block; max-width: 22rem; margin-top: 0.25rem; color: #536273; white-space: pre-wrap; }
+.field-error { color: #994515; font-size: 0.8rem; }
+.lead-strip { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.8rem; }
+.lead-strip div { display: grid; gap: 0.2rem; }
+.lead-strip div span { color: #536273; font-size: 0.85rem; }
+.audit-timeline { display: grid; gap: 0.6rem; padding-left: 1.25rem; }
+.audit-timeline time { color: #536273; font-size: 0.85rem; }
+.text-link-button { margin: 0; }
+.skeleton-row span { display: block; width: min(100%, 22rem); height: 1rem; border-radius: 999px; background: linear-gradient(90deg, #e8edef 25%, #f5f8f8 50%, #e8edef 75%); background-size: 200% 100%; animation: skeleton-shimmer 1.4s ease infinite; }
+@keyframes skeleton-shimmer { to { background-position: -200% 0; } }
 .bulk-tools, .action-row, .dialog-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 0.55rem; margin-bottom: 0.7rem; }
 .bulk-tools label { display: flex; align-items: center; gap: 0.35rem; }
 .bulk-tools button, .action-row button, .dialog-actions button { min-height: 2.45rem; padding: 0.45rem 0.8rem; border: 1px solid #9aa6b2; border-radius: 0.3rem; background: #fff; color: #17202b; cursor: pointer; font: inherit; font-weight: 700; }
@@ -247,6 +267,7 @@ pre { overflow: auto; max-height: 24rem; padding: 0.75rem; border-radius: 0.35re
   .count-card span { color: #aeb9c7; }
   .notice { background: #362f1d; }
   .review-header nav a:hover { background: #2a3745; }
+  .review-header nav a[aria-current="page"], .subview-tabs a[aria-current="page"] { color: #9de0d8; background: #243a3b; }
   .filters input, .filters select, .form-grid input, .form-grid select, td select { border-color: #64748b; background: #111820; color: #edf2f7; }
   th, td { border-color: #344252; }
   pre { background: #111820; }
@@ -255,4 +276,13 @@ pre { overflow: auto; max-height: 24rem; padding: 0.75rem; border-radius: 0.35re
   .confirm-dialog { border-color: #64748b; background: #1c2631; color: #edf2f7; }
   .confirm-dialog textarea { border-color: #64748b; background: #111820; color: #edf2f7; }
   .draft-editor input, .draft-editor textarea { border-color: #64748b; background: #111820; color: #edf2f7; }
+  .pagination button, .text-link-button { border-color: #4b6668; background: #1b3032; color: #9de0d8; }
+  .subview-tabs { border-color: #3b4653; }
+  .subview-tabs span { background: #344252; }
+  .badge-email-required { background: #493426; color: #ffd1a8; }
+  .badge-returned { background: #243a3b; color: #9de0d8; }
+  .returned-note { color: #aeb9c7; }
+  .field-error { color: #ffd1a8; }
+  .lead-strip div span, .audit-timeline time { color: #aeb9c7; }
+  .skeleton-row span { background: linear-gradient(90deg, #263340 25%, #354553 50%, #263340 75%); background-size: 200% 100%; }
 }

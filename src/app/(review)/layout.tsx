@@ -4,9 +4,9 @@ import LogoutButton from "@/app/logout-button";
 import { requireSessionUser } from "@/lib/server/auth/session";
 
 const links = [
-  ["Dashboard", "/"],
   ["Leads", "/leads"],
   ["Drafts", "/drafts"],
+  ["All", "/all"],
   ["Import", "/import"],
   ["History", "/history"],
 ] as const;
@@ -17,7 +17,7 @@ export default async function ReviewLayout({ children }: Readonly<{ children: Re
   return (
     <div className="review-shell">
       <header className="review-header">
-        <Link className="brand" href="/">Lead Review</Link>
+        <Link className="brand" href="/leads">Lead Review</Link>
         <nav aria-label="Main navigation">
           {links.map(([label, href]) => <Link key={href} href={href}>{label}</Link>)}
           {user.role === "admin" && <Link href="/users">Users</Link>}

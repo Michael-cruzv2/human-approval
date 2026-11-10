@@ -3,6 +3,8 @@ import type { PoolClient } from "pg";
 export type AuditAction =
   | "APPROVE"
   | "REJECT"
+  | "DRAFT_REJECT"
+  | "LEAD_RETURNED"
   | "REVOKE"
   | "REOPEN"
   | "EDIT"

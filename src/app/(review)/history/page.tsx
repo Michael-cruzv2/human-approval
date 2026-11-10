@@ -2,7 +2,7 @@ import { query } from "@/lib/server/db";
 import { z } from "zod";
 
 export const dynamic = "force-dynamic";
-const HistoryAction = z.enum(["APPROVE", "REJECT", "REVOKE", "REOPEN", "EDIT", "ARCHIVE", "IMPORT"]);
+const HistoryAction = z.enum(["APPROVE", "REJECT", "DRAFT_REJECT", "LEAD_RETURNED", "REVOKE", "REOPEN", "EDIT", "ARCHIVE", "IMPORT"]);
 const validDate = (value: unknown): value is string => typeof value === "string"
   && /^\d{4}-\d{2}-\d{2}$/.test(value)
   && !Number.isNaN(Date.parse(`${value}T00:00:00Z`))
@@ -27,7 +27,7 @@ export default async function HistoryPage({ searchParams }: { searchParams: Prom
          LEFT JOIN leads l ON a.entity='lead' AND l.id=a.entity_id
          LEFT JOIN drafts d ON a.entity='draft' AND d.id=a.entity_id
          LEFT JOIN leads parent ON parent.id=d.lead_id
-        WHERE a.action IN ('APPROVE','REJECT','REVOKE','REOPEN','EDIT','ARCHIVE','IMPORT')
+        WHERE a.action IN ('APPROVE','REJECT','DRAFT_REJECT','LEAD_RETURNED','REVOKE','REOPEN','EDIT','ARCHIVE','IMPORT')
           AND ($1::uuid IS NULL OR a.actor_id=$1::uuid)
           AND ($2='' OR a.action=$2)
           AND ($3::date IS NULL OR a.created_at >= $3::date)

@@ -40,3 +40,5 @@ Numbered so they can be cited in reviews and tests. "MUST" and "MUST NOT" are ab
 - **R25** Never guess. Unclear contract means an Open question in `docs/DECISIONS.md`, not an assumption.
 - **R26** Do not add features, tables or columns not in this pack. Propose them in `docs/DECISIONS.md` first.
 - **R27** Compliance screening (`antispam_tag`) is a screening aid, not legal advice. The UI shows it but MUST NOT present it as a legal clearance.
+- **R28** A lead MUST have a valid-looking, lowercase email to enter `human_approval = 'APPROVED'`. Enforce this in the UI, server action, and database.
+- **R29** Returning an approved lead from draft review rejects that draft and returns the lead to `PENDING` in one transaction. Both state changes and their audit records are atomic; block the action if sending has started.

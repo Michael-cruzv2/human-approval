@@ -1,6 +1,6 @@
 # DATA_CONTRACT.md: tables, ownership, transitions
 
-Source of truth for structure: `db/schema.sql` (shared) and `db/002_review_app.sql` (this app's additions).
+Source of truth for structure: `db/schema.sql` (shared), `db/002_review_app.sql` (this app's additions), and `db/003_approval_requires_email.sql` (approval email guard).
 If this file and the SQL disagree, stop and log an Open question.
 
 ## Ownership matrix (W = may write, R = read only, - = no access)
@@ -21,6 +21,7 @@ If this file and the SQL disagree, stop and log an Open question.
 
 ### `leads`
 - Review fields: `human_approval`, `human_approved_by`, `human_approved_at`, `human_note`, `archived`.
+- Approval requires a non-empty, valid-looking, lowercase `email` (R28); this is also enforced by the additive `db/003_approval_requires_email.sql`.
 - Editable facts (operators may correct): `company_name`, `contact_name`, `email`, `email_type`, `phone`, `country`, `language`, `timezone`, `niche`.
 - Insert (Excel import only): the columns in `docs/IMPORT.md`; `agent_approval` is the fixed `NEEDS_REVIEW`, `contacted` is fixed `false`, and `source_run_id` is fixed `NULL` per R20.
 - Never update: `id`, `domain` (except insert), `agent_approval`, `agent_reason`, `is_shopify`, `has_mobile_app`, `app_signals`, `evidence`, `confidence`, `source_*`, `contacted`, `added_at`. Import does not write `agent_reason` or evidence; see D16.
@@ -41,13 +42,14 @@ PENDING  -> REJECTED   (confirm step; note required)
 APPROVED -> PENDING    (revoke; allowed unless an email_sends row is SENDING or SENT, see R8)
 REJECTED -> PENDING    (reopen)
 ```
-Leads with `agent_approval = 'REJECTED'` are not shown in the review queue. `APPROVED -> REJECTED` directly is not allowed (revoke first).
+Approval also requires a valid-looking lowercase email. Leads with `agent_approval = 'REJECTED'` are not shown in the pending or rejected review queues. `APPROVED -> REJECTED` directly is not allowed (revoke first).
 
 ### `drafts.human_approval`
 ```
 PENDING  -> APPROVED   (confirm step; compare-and-set on content_hash; parent lead must be APPROVED)
 PENDING  -> REJECTED   (confirm step; note required)
-APPROVED -> PENDING    (revoke; same rule as R8)
+PENDING  -> REJECTED plus parent lead APPROVED -> PENDING (send back to verification; both changes, actor fields, notes and audit rows are one transaction; blocked if sending has started)
+APPROVED -> PENDING   (revoke; same rule as R8)
 APPROVED -> PENDING    (automatic when text is edited: DB trigger)
 REJECTED -> (final)    (a redraft is a new `drafts` row by the Drafter, not a state change)
 ```
@@ -63,13 +65,21 @@ RETURNING id;
 ```
 Do the lead-state check and the `audit_log` insert in the same transaction.
 
+The send-back action sets the draft's `human_approval = 'REJECTED'`, `human_approved_by/at` and `human_note`; it sets the lead's `human_approval = 'PENDING'`, clears `human_approved_by/at`, and copies the required note to `human_note`. It writes `DRAFT_REJECT` and `LEAD_RETURNED` audit rows in the same transaction. Audit details contain IDs and field names only.
+
+Draft review and approval additionally require the parent lead to have exact `APPROVED` status and a valid-looking lowercase email. Draft rejection does not change the lead unless the explicit send-back action is selected.
+
 ## Queues the UI reads
-- **Lead queue**: `human_approval = 'PENDING' AND agent_approval <> 'REJECTED' AND archived = false`, oldest first.
-- **Draft queue**: drafts with `human_approval = 'PENDING'` whose lead is `APPROVED`, oldest first.
+- **Leads**: pending leads where `human_approval = 'PENDING' AND agent_approval <> 'REJECTED' AND archived = false`; a separate Rejected filter may show rejected leads for reopening. Approved leads never appear. Page size 25, keyset Load more.
+- **Drafts · To review**: pending drafts whose non-archived lead is `APPROVED` and has a valid-looking lowercase email.
+- **Drafts · Awaiting draft**: approved, non-archived leads with a valid-looking lowercase email and no non-rejected draft; read-only.
+- **Drafts · Approved**: approved drafts whose lead is still approved and has a valid email; revoke is subject to R8.
+- **All**: read-only overview of all leads and statuses. Keyset pagination ordered by `(updated_at DESC, id ASC)`, page size 25; filters and search are applied before pagination.
 - **History**: approved/rejected rows with who and when, filterable by user.
+- Leads and Drafts queues also use page size 25 and explicit Load more controls.
 
 ## Audit log entries (one per action)
-`entity` in (`lead`, `draft`, `user`, `import`), `action` in (`APPROVE`, `REJECT`, `REVOKE`, `REOPEN`, `EDIT`, `ARCHIVE`, `IMPORT`, `LOGIN`, `LOGIN_FAILED`, `LOGOUT`, `USER_ADD`, `USER_ACTIVATE`, `USER_DEACTIVATE`, `ROLE_CHANGE`).
+`entity` in (`lead`, `draft`, `user`, `import`), `action` includes (`APPROVE`, `REJECT`, `DRAFT_REJECT`, `LEAD_RETURNED`, `REVOKE`, `REOPEN`, `EDIT`, `ARCHIVE`, `IMPORT`, `LOGIN`, `LOGIN_FAILED`, `LOGOUT`, `USER_ADD`, `USER_ACTIVATE`, `USER_DEACTIVATE`, `ROLE_CHANGE`).
 `details` holds IDs, the changed field names, and for draft approvals the approved `content_hash`. Never store lead contact data or draft text in `details`.
 
 The Review App may delete `auth_otp_codes` rows older than one hour, expired `auth_sessions` during session cleanup, and `auth_verify_attempts` rows older than 15 minutes during verification cleanup. No other deletes are allowed from those tables.

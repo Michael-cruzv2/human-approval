@@ -41,6 +41,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       );
       const current = currentResult.rows[0];
       if (!current) return "NOT_FOUND" as const;
+      if (current.archived) return "ARCHIVED" as const;
       const changes = EDITABLE_COLUMNS.filter((field) =>
         Object.hasOwn(parsed.data, field) && parsed.data[field] !== undefined,
       );
@@ -56,6 +57,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       return { approvalReset: current.human_approval === "APPROVED" && updated.rows[0]?.human_approval === "PENDING" };
     });
     if (result === "NOT_FOUND") return jsonNoStore({ message: "Lead not found." }, 404);
+    if (result === "ARCHIVED") return jsonNoStore({ message: "Archived leads cannot be edited." }, 409);
     return jsonNoStore({ ok: true, approvalReset: result.approvalReset });
   } catch {
     return jsonNoStore({ message: "Could not save lead changes." }, 503);

@@ -37,7 +37,9 @@ The owner applies SQL manually to a **throwaway child/test branch**, in this ord
 
 1. `db/schema.sql`
 2. `db/002_review_app.sql`
-3. Copy `db/seed.example.sql` to a private SQL file, replace the example email/name, and insert the first admin once.
+3. Before applying `db/003_approval_requires_email.sql`, reconcile approved lead rows with invalid or missing email.
+4. `db/003_approval_requires_email.sql`
+5. Copy `db/seed.example.sql` to a private SQL file, replace the example email/name, and insert the first admin once.
 
 Never run these setup scripts against the main/production branch as part of local testing. Keep the seed file with the real admin details out of version control. The app uses the child URL for local work and does not migrate databases automatically.
 

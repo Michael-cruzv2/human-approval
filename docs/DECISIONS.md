@@ -3,7 +3,7 @@
 Agents: add Open questions here, never guess. The owner answers; move answered items to Decided.
 
 ## Decided
-- D1 Lead review and draft review are one app with two tabs (Leads, Drafts). Excel upload kept as an optional import.
+- D1 The review app has three review tabs with separate jobs: Leads (human verification), Drafts (email text), and All (read-only overview). Excel upload remains an optional utility.
 - D2 Several operators: at most 3 active users, owner is `admin`. Actions are attributed to a user from a `users` table.
 - D3 Login by email one-time code only. Authorised people only (active rows in `users`).
 - D4 State lives in the shared Neon Postgres; this app only writes its own columns (`docs/DATA_CONTRACT.md`). Owner sets per-program roles and row/column permissions in Neon.
@@ -19,8 +19,12 @@ Agents: add Open questions here, never guess. The owner answers; move answered i
 - D14 Import requires an explicit preview and commit. The server parses the file in both phases, stores no uploaded file, and rejects commits without a current-session proof or matching SHA-256.
 - D15 Imported `phones_json` values are an array of strings in workbook order; `phone` is the first value. The lead-review contact display uses the email address only.
 - D16 R10 takes precedence over conflicting import mappings: ignore `shopify_evidence`, `no_app_evidence`, and `review_reasons`; do not write `evidence` or `agent_reason`. R20 still requires the constant `agent_approval = 'NEEDS_REVIEW'` on new imports.
-- D17 Dashboard `sent` and `needs-human` counts remain unlinked read-only cards; no additional send-status list is in scope.
-- D18 Email is the only contact value shown on lead and draft lists/details. Importing a lead without email remains allowed; it is not contactable through the mailer's ready-to-queue view.
+- D17 The former dashboard is superseded by the read-only All tab; the app opens on Leads and has no separate dashboard route.
+- D18 Email is the only contact value shown on Leads and Drafts lists/details. Importing a lead without email remains allowed; it is not contactable through the mailer's ready-to-queue view. The All tab's read-only full-data view may show all stored lead facts.
+- D19 A lead cannot be approved without a valid-looking lowercase email matching `[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}`. The UI, server mutation and additive database check enforce this. `db/003_approval_requires_email.sql` is owner-applied and must be applied only after reconciling any existing approved rows that fail the check.
+- D20 Draft review has two required-note rejection transitions: reject the draft only, or atomically reject the draft and return the lead to verification. Returning is blocked once sending is SENDING or SENT and writes `DRAFT_REJECT` plus `LEAD_RETURNED` audit actions.
+- D21 The Drafter must create drafts only for leads whose exact `human_approval` is `APPROVED` and whose email is valid. The Drafts tab likewise excludes any other lead.
+- D22 Leads, Drafts and All lists use keyset Load more pages of 25; All is ordered by `(updated_at DESC, id ASC)`.
 
 ## Open questions (owner to answer)
 - O1 `NEEDS_REVIEW` leads: the mailer's view requires `agent_approval = 'VERIFIED'`. Should a human be able to override this (needs a new human-owned column, e.g. `human_verified`), or must NEEDS_REVIEW leads be fixed by LeadSearch re-verification? Default until answered: humans may edit and approve them, the UI warns they are not sendable, and nothing else changes.
@@ -47,8 +51,13 @@ Agents: add Open questions here, never guess. The owner answers; move answered i
 - R23–R24: external integrations are Postgres and Mailgun; secrets are loaded and validated from env; `.env` is ignored.
 - R25–R26: contract ambiguities are logged here; no new database tables/columns were introduced beyond the approved auth migration.
 - R27: lead and draft screens label screening tags as aids, not legal clearance.
+- R28: lead detail disables approval without a valid lowercase email; `/api/leads/[id]/actions` checks the same rule; the additive constraint is `db/003_approval_requires_email.sql` and startup verifies it.
+- R29: `/api/drafts/[id]/actions` performs both send-back updates and both audit inserts inside one transaction, after checking `email_sends` for `SENDING`/`SENT`.
 
 T19 remains open until the database-backed and manual scenarios in `docs/TESTING.md` pass.
+
+## UI contract change log
+- 2026-11-10: Adopted `docs/UI_SKILL.md` as the controlling UI brief. Replaced the prior two-tab model with Leads, Drafts and All; added email-gated lead approval, draft send-back, and keyset pagination. Updated `RULES.md`, `DATA_CONTRACT.md`, and `UI_SPEC.md` accordingly.
 
 ## Open implementation questions
 - O10 `SESSION_SECRET` is required by `docs/SECURITY.md`, but the auth contract defines opaque random sessions stored as SHA-256 hashes and does not define a use for this secret. Keep validating it at startup; clarify before using it for another purpose.

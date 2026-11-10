@@ -79,8 +79,8 @@ const AppYamlSchema = z
       .strict(),
     review: z
       .object({
-        lead_queue_page_size: z.number().int().positive(),
-        draft_queue_page_size: z.number().int().positive(),
+        lead_queue_page_size: z.literal(25),
+        draft_queue_page_size: z.literal(25),
         require_note_on_reject: z.boolean(),
         allow_bulk_reject_leads: z.boolean(),
         allow_bulk_approve: z.literal(false),

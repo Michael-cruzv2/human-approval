@@ -3,6 +3,7 @@ import { writeAudit } from "@/lib/server/auth/audit";
 import { getApiSessionUser } from "@/lib/server/http/api-auth";
 import { isSameOriginRequest, jsonNoStore } from "@/lib/server/auth/http";
 import { withTransaction } from "@/lib/server/db";
+import { isValidReviewEmail } from "@/lib/server/review/email";
 
 export const runtime = "nodejs";
 
@@ -27,8 +28,8 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   try {
     const outcome = await withTransaction(async (client) => {
       const selected = await client.query<{
-        human_approval: string; agent_approval: string; archived: boolean;
-      }>("SELECT human_approval, agent_approval, archived FROM leads WHERE id = $1 FOR UPDATE", [id]);
+        human_approval: string; agent_approval: string; archived: boolean; email: string | null;
+      }>("SELECT human_approval, agent_approval, archived, email FROM leads WHERE id = $1 FOR UPDATE", [id]);
       const lead = selected.rows[0];
       if (!lead) return "NOT_FOUND" as const;
       const { action, note } = parsed.data;
@@ -37,6 +38,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       let auditAction: "APPROVE" | "REJECT" | "REVOKE" | "REOPEN" | "ARCHIVE";
       if (action === "approve") {
         if (lead.human_approval !== "PENDING" || lead.agent_approval === "REJECTED" || lead.archived) return "CONFLICT" as const;
+        if (!isValidReviewEmail(lead.email)) return "EMAIL_REQUIRED" as const;
         await client.query("UPDATE leads SET human_approval='APPROVED', human_approved_by=$2, human_approved_at=now(), human_note=$3 WHERE id=$1", [id, actor.id, note ?? null]);
         auditAction = "APPROVE"; status = "APPROVED";
       } else if (action === "reject") {
@@ -67,6 +69,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       return { status };
     });
     if (outcome === "NOT_FOUND") return jsonNoStore({ message: "Lead not found." }, 404);
+    if (outcome === "EMAIL_REQUIRED") return jsonNoStore({ message: "Add a valid email address before approving this lead." }, 422);
     if (outcome === "SEND_STARTED") return jsonNoStore({ message: "This lead cannot be revoked because sending has started." }, 409);
     if (outcome === "CONFLICT") return jsonNoStore({ message: "This lead changed state. Refresh and review it again." }, 409);
     return jsonNoStore({ ok: true, status: outcome.status });

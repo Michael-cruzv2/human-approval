@@ -13,7 +13,7 @@ Purpose: add leads that did not come from LeadSearch, or re-add rows from a Lead
 - Domain: lowercase, remove scheme/path/`www.`; must look like a registered domain; reject IPs, `localhost`, `myshopify.com` domains.
 - Email: basic RFC-style check, lowercase. Phone: free text up to 40 chars.
 - `phones_json` is an array of phone strings, in workbook order; `phone` is the first value.
-- Email is the only contact value shown in review lists and details. A row without an email may still be imported, but it has no contact email and is excluded from the mailer's ready-to-queue view.
+- Email is the only contact value shown in the Leads and Drafts review lists and details. The All tab is a read-only full-data view and may show other stored contact facts. A row without an email may still be imported, but it has no contact email and is excluded from the mailer's ready-to-queue view.
 - Country must be ISO alpha-2 if present, else set `NULL`.
 - `screening_status` (or `antispam_tag`) must be one of `OPT_OUT_REGIME`, `CONDITIONAL`, `CONSENT_REQUIRED`, `VARIES_REVIEW`, `UNKNOWN_REVIEW`; anything else becomes `UNKNOWN_REVIEW`.
 

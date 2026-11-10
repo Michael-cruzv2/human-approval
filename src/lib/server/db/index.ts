@@ -105,4 +105,19 @@ export async function assertRequiredSchema(): Promise<void> {
       `Database schema is missing required objects: ${missing.join(", ")}`,
     );
   }
+  const approvalEmailGuard = await query<{ conname: string }>(
+    `SELECT c.conname
+       FROM pg_constraint c
+       JOIN pg_class r ON r.oid = c.conrelid
+       JOIN pg_namespace n ON n.oid = r.relnamespace
+      WHERE n.nspname = current_schema()
+        AND r.relname = 'leads'
+        AND c.conname = 'chk_approved_lead_has_valid_email'
+        AND c.contype = 'c'`,
+  );
+  if (approvalEmailGuard.rowCount !== 1) {
+    throw new MissingSchemaError(
+      "Database schema is missing required constraint: leads.chk_approved_lead_has_valid_email (apply db/003_approval_requires_email.sql)",
+    );
+  }
 }
