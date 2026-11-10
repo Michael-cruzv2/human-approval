@@ -2,6 +2,11 @@ import { query } from "@/lib/server/db";
 import { z } from "zod";
 
 export const dynamic = "force-dynamic";
+const historyDate = new Intl.DateTimeFormat("en-GB", {
+  dateStyle: "medium",
+  timeStyle: "short",
+  timeZone: "UTC",
+});
 const HistoryAction = z.enum(["APPROVE", "REJECT", "DRAFT_REJECT", "LEAD_RETURNED", "REVOKE", "REOPEN", "EDIT", "ARCHIVE", "IMPORT"]);
 const validDate = (value: unknown): value is string => typeof value === "string"
   && /^\d{4}-\d{2}-\d{2}$/.test(value)
@@ -42,10 +47,10 @@ export default async function HistoryPage({ searchParams }: { searchParams: Prom
       <form className="panel filters" action="/history">
         <label>User<select name="user" defaultValue={userId}><option value="">All active users</option>{users.rows.map((user) => <option key={user.id} value={user.id}>{user.name}</option>)}</select></label>
         <label>Action<select name="action" defaultValue={action}><option value="">All review actions</option>{HistoryAction.options.map((value) => <option key={value}>{value}</option>)}</select></label>
-        <label>From<input type="date" name="start" defaultValue={start} /></label><label>Through<input type="date" name="end" defaultValue={end} /></label><button type="submit">Filter history</button>
+        <label>From<input type="date" name="start" defaultValue={start} /></label><label>Through<input type="date" name="end" defaultValue={end} /></label><button className="btn" type="submit">Filter history</button>
       </form>
       <section className="panel table-panel"><div className="table-scroll"><table><thead><tr><th>Time</th><th>User</th><th>Entity</th><th>Action</th><th>Domain</th><th>Company</th></tr></thead><tbody>
-        {history.rows.map((row) => <tr key={row.id}><td><time dateTime={row.created_at.toISOString()}>{row.created_at.toLocaleString()}</time></td><td>{row.actor_name ?? "System"}</td><td>{row.entity}</td><td>{row.action}</td><td>{row.domain ?? "—"}</td><td>{row.company_name ?? "—"}</td></tr>)}
+        {history.rows.map((row) => <tr key={row.id}><td><time dateTime={row.created_at.toISOString()}>{historyDate.format(row.created_at)}</time></td><td>{row.actor_name ?? "System"}</td><td>{row.entity}</td><td>{row.action}</td><td>{row.domain ?? "—"}</td><td>{row.company_name ?? "—"}</td></tr>)}
       </tbody></table>{history.rows.length === 0 && <p className="empty-state">No matching history.</p>}</div></section>
     </section>
   );

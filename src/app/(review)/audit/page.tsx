@@ -4,6 +4,11 @@ import { getCurrentSessionUser } from "@/lib/server/auth/session";
 import { query } from "@/lib/server/db";
 
 export const dynamic = "force-dynamic";
+const auditDate = new Intl.DateTimeFormat("en-GB", {
+  dateStyle: "medium",
+  timeStyle: "short",
+  timeZone: "UTC",
+});
 const Action = z.string().trim().max(40).regex(/^[A-Z_]*$/);
 const validDate = (value: unknown): value is string => typeof value === "string"
   && /^\d{4}-\d{2}-\d{2}$/.test(value)
@@ -42,10 +47,10 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
       <form className="panel filters" action="/audit">
         <label>User<select name="user" defaultValue={userId}><option value="">All users</option>{users.rows.map((user) => <option key={user.id} value={user.id}>{user.name}</option>)}</select></label>
         <label>Action<select name="action" defaultValue={action}><option value="">All actions</option>{actions.rows.map(({ action: value }) => <option key={value}>{value}</option>)}</select></label>
-        <label>From<input type="date" name="start" defaultValue={start} /></label><label>Through<input type="date" name="end" defaultValue={end} /></label><button type="submit">Filter audit</button>
+        <label>From<input type="date" name="start" defaultValue={start} /></label><label>Through<input type="date" name="end" defaultValue={end} /></label><button className="btn" type="submit">Filter audit</button>
       </form>
       <section className="panel table-panel"><div className="table-scroll"><table><thead><tr><th>Time</th><th>Actor</th><th>Entity</th><th>Entity ID</th><th>Action</th></tr></thead><tbody>
-        {entries.rows.map((row) => <tr key={row.id}><td><time dateTime={row.created_at.toISOString()}>{row.created_at.toLocaleString()}</time></td><td>{row.actor_name ?? row.actor_type}</td><td>{row.entity}</td><td><code>{row.entity_id}</code></td><td>{row.action}</td></tr>)}
+        {entries.rows.map((row) => <tr key={row.id}><td><time dateTime={row.created_at.toISOString()}>{auditDate.format(row.created_at)}</time></td><td>{row.actor_name ?? row.actor_type}</td><td>{row.entity}</td><td><code>{row.entity_id}</code></td><td>{row.action}</td></tr>)}
       </tbody></table>{entries.rows.length === 0 && <p className="empty-state">No matching audit entries.</p>}</div></section>
     </section>
   );

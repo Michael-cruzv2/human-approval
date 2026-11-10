@@ -158,7 +158,7 @@ export default function ImportForm({
             onChange={selectFile}
           />
         </label>
-        <button type="submit" disabled={busy || !file}>
+        <button className="btn btn-leads" type="submit" disabled={busy || !file}>
           {busy ? "Preparing preview…" : "Preview file"}
         </button>
       </form>
@@ -227,6 +227,7 @@ export default function ImportForm({
             </div>
           )}
           <button
+            className="btn btn-leads"
             type="button"
             disabled={busy || !preview.canCommit}
             onClick={commitImport}

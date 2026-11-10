@@ -97,7 +97,7 @@ export default function UsersAdmin() {
         <label>Name<input required maxLength={120} value={name} onChange={(event) => setName(event.target.value)} /></label>
         <label>Email<input required type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} /></label>
         <label>Role<select value={role} onChange={(event) => setRole(event.target.value as typeof role)}><option value="operator">Operator</option><option value="admin">Admin</option></select></label>
-        <button type="submit" disabled={busy || activeCount >= 3}>{busy ? "Adding…" : "Add user"}</button>
+        <button className="btn btn-leads" type="submit" disabled={busy || activeCount >= 3}>{busy ? "Adding…" : "Add user"}</button>
         <p className="form-message" role="status">{message}</p>
       </form>
       <section className="panel table-panel">
@@ -107,7 +107,7 @@ export default function UsersAdmin() {
             <td>{user.name}</td><td>{user.email}</td>
             <td><select aria-label={`Role for ${user.name}`} value={user.role} onChange={(event) => updateUser(user, { role: event.target.value as ManagedUser["role"] })}><option value="admin">Admin</option><option value="operator">Operator</option></select></td>
             <td>{user.isActive ? "Active" : "Inactive"}</td>
-            <td><button type="button" disabled={!user.isActive && activeCount >= 3} onClick={() => updateUser(user, { isActive: !user.isActive })}>{user.isActive ? "Deactivate" : "Reactivate"}</button></td>
+            <td><button className="btn btn-sm" type="button" disabled={!user.isActive && activeCount >= 3} onClick={() => updateUser(user, { isActive: !user.isActive })}>{user.isActive ? "Deactivate" : "Reactivate"}</button></td>
           </tr>)}</tbody>
         </table></div>
       </section>
