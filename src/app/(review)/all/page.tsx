@@ -52,7 +52,7 @@ export default async function AllPage({
   const result = await getAllQueuePage(filters);
   const rows = result.rows.slice(0, 25);
   return (
-    <section className="page-stack">
+    <section className="page-stack all-page">
       <header className="page-heading">
         <div>
           <p className="eyebrow">Read-only overview</p>

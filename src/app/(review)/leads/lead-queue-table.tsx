@@ -16,7 +16,7 @@ type LeadListItem = {
   updated_at: string;
   returned_from_drafts: boolean;
 };
-type Filters = { status: "PENDING" | "REJECTED"; agent: string; tag: string; country: string; search: string };
+type Filters = { status: "PENDING" | "REJECTED"; agent: string; tag: string; country: string; search: string; email: "ALL" | "MISSING"; returned: boolean };
 
 function hasValidEmail(email: string | null): boolean {
   return Boolean(email && email === email.toLowerCase() && /^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/.test(email));
@@ -32,11 +32,13 @@ export default function LeadQueueTable({
   total,
   hasMore: initiallyHasMore,
   filters,
+  selectedLeadId,
 }: {
   leads: LeadListItem[];
   total: number;
   hasMore: boolean;
   filters: Filters;
+  selectedLeadId: string;
 }) {
   const [leads, setLeads] = useState(initialLeads);
   const [hasMore, setHasMore] = useState(initiallyHasMore);
@@ -59,7 +61,21 @@ export default function LeadQueueTable({
       if (target instanceof HTMLElement && (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName))) return;
       const links = Array.from(document.querySelectorAll<HTMLAnchorElement>(".lead-domain-link"));
       const currentIndex = links.findIndex((link) => link === document.activeElement);
-      if ((event.key === "j" || event.key === "k") && links.length) {
+      const detailPane = document.querySelector<HTMLElement>(".lead-detail-pane");
+      const detailVisible = Boolean(detailPane?.getClientRects().length);
+      if (event.key === "e" && detailVisible) {
+        const firstField = detailPane?.querySelector<HTMLInputElement>("#company_name");
+        if (firstField) {
+          event.preventDefault();
+          firstField.focus();
+        }
+      } else if (event.key === "f" && detailVisible) {
+        const fullData = detailPane?.querySelector<HTMLDetailsElement>(".lead-full-data");
+        if (fullData) {
+          event.preventDefault();
+          fullData.open = !fullData.open;
+        }
+      } else if ((event.key === "j" || event.key === "k") && links.length) {
         event.preventDefault();
         const index = currentIndex < 0 ? 0 : (currentIndex + (event.key === "j" ? 1 : -1) + links.length) % links.length;
         links[index].focus();
@@ -85,6 +101,7 @@ export default function LeadQueueTable({
     const last = leads[leads.length - 1];
     const params = new URLSearchParams({
       ...filters,
+      returned: String(filters.returned),
       cursorAt: last.updated_at,
       cursorId: last.id,
     });
@@ -157,23 +174,33 @@ export default function LeadQueueTable({
         <label>Shared rejection note<input value={note} onChange={(event) => setNote(event.target.value)} /></label>
         <span role="status">{message}</span>
       </div>}
-      <div className="table-scroll">
-        <table>
-          <thead><tr>{filters.status === "PENDING" && <th>Select</th>}<th>Domain</th><th>Company</th><th>Country</th><th>Agent</th><th>Screening</th><th>Email</th><th>Updated</th></tr></thead>
-          <tbody>{leads.map((lead) => {
+      <div className="lead-queue-list" role="list" aria-label="Leads to verify">{leads.map((lead) => {
             const emailMissing = !hasValidEmail(lead.email);
-            return <tr key={lead.id}>
-              {filters.status === "PENDING" && <td><input aria-label={`Select ${lead.domain}`} type="checkbox" checked={selected.includes(lead.id)} onChange={(event) => setSelected((current) => event.target.checked ? [...current, lead.id] : current.filter((id) => id !== lead.id))} /></td>}
-              <td><Link className="lead-domain-link" data-lead-id={lead.id} href={`/leads/${lead.id}`}>{lead.domain}</Link>{lead.returned_from_drafts && <div><span className="badge badge-returned">Returned from drafts</span><small className="returned-note">{lead.human_note}</small></div>}</td>
-              <td>{lead.company_name ?? "—"}</td><td>{lead.country ?? "—"}</td>
-              <td><span className={`badge badge-${lead.agent_approval.toLowerCase()}`}>{lead.agent_approval}</span></td>
-              <td><span className="badge">{lead.antispam_tag}</span></td>
-              <td>{emailMissing ? <><span className="badge badge-email-required">Email required</span><div>{lead.email ?? "No email address"}</div></> : lead.email}</td>
-              <td><time dateTime={lead.updated_at}>              {updatedDateFormat.format(new Date(lead.updated_at))}</time></td>
-            </tr>;
-          })}{loading && Array.from({ length: 3 }, (_, index) => <tr className="skeleton-row" key={`skeleton-${index}`} aria-hidden="true"><td colSpan={filters.status === "PENDING" ? 8 : 7}><span /></td></tr>)}</tbody>
-        </table>
-        {leads.length === 0 && <p className="empty-state">Nothing to review.</p>}
+            const params = new URLSearchParams({
+              status: filters.status,
+              agent: filters.agent,
+              tag: filters.tag,
+              country: filters.country,
+              search: filters.search,
+              email: filters.email,
+              returned: String(filters.returned),
+              lead: lead.id,
+            });
+            return <article className={`lead-queue-item${selectedLeadId === lead.id ? " is-selected" : ""}`} key={lead.id} role="listitem">
+              {filters.status === "PENDING" && <input aria-label={`Select ${lead.domain}`} type="checkbox" checked={selected.includes(lead.id)} onChange={(event) => setSelected((current) => event.target.checked ? [...current, lead.id] : current.filter((id) => id !== lead.id))} />}
+              <Link className="lead-domain-link" data-lead-id={lead.id} href={`/leads?${params}`} scroll={false} aria-current={selectedLeadId === lead.id ? "true" : undefined}>
+                <span className="lead-row-title">{lead.company_name ?? lead.domain}</span>
+                <span className="lead-row-domain">{lead.domain} · {lead.country ?? "Country unknown"}</span>
+                <span className="lead-row-meta"><span className={`badge badge-${lead.agent_approval.toLowerCase()}`}>{lead.agent_approval.replaceAll("_", " ")}</span><span className="badge">{lead.antispam_tag.replaceAll("_", " ")}</span></span>
+                {emailMissing && <span className="badge badge-email-required">Email required</span>}
+                {lead.returned_from_drafts && <span className="badge badge-returned">Returned from drafts</span>}
+                {lead.returned_from_drafts && lead.human_note && <small className="returned-note">{lead.human_note}</small>}
+                <time dateTime={lead.updated_at}>{updatedDateFormat.format(new Date(lead.updated_at))}</time>
+              </Link>
+            </article>;
+          })}
+        {loading && Array.from({ length: 3 }, (_, index) => <div className="skeleton-card" key={`skeleton-${index}`} aria-hidden="true"><span /><span /></div>)}
+        {leads.length === 0 && !loading && <p className="empty-state">Nothing to review.</p>}
       </div>
       <div className="pagination">
         <span>Showing {leads.length} of {total}</span>

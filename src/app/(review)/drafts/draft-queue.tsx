@@ -27,12 +27,14 @@ export default function DraftQueue({
   search,
   total,
   hasMore: initiallyHasMore,
+  selectedItemId,
 }: {
   drafts: DraftQueueItem[];
   view: "to-review" | "awaiting-draft" | "approved";
   search: string;
   total: number;
   hasMore: boolean;
+  selectedItemId: string;
 }) {
   const [drafts, setDrafts] = useState(initialDrafts);
   const [hasMore, setHasMore] = useState(initiallyHasMore);
@@ -76,66 +78,28 @@ export default function DraftQueue({
 
   return (
     <>
-      <div className="table-scroll">
-        <table>
-          <thead>
-            <tr>
-              <th>Company</th>
-              <th>Domain</th>
-              <th>Recipient email</th>
-              <th>Version</th>
-              <th>Status</th>
-              <th>Updated</th>
-              <th>Last edited by</th>
-            </tr>
-          </thead>
-          <tbody>
-            {drafts.map((draft) => (
-              <tr key={draft.id}>
-                <td>
-                  <Link
-                    href={
-                      view === "awaiting-draft"
-                        ? `/all/${draft.lead_id}`
-                        : `/drafts/${draft.draft_id}`
-                    }
-                  >
-                    {draft.company_name ?? draft.domain}
-                  </Link>
-                </td>
-                <td>{draft.domain}</td>
-                <td>{draft.email}</td>
-                <td>{draft.version ?? "—"}</td>
-                <td>
-                  {view === "awaiting-draft"
-                    ? "Awaiting draft"
-                    : draft.human_approval}
-                </td>
-                <td>
-                  <time dateTime={draft.updated_at}>
-                    {updatedDateFormat.format(new Date(draft.updated_at))}
-                  </time>
-                </td>
-                <td>{draft.editor_name ?? "—"}</td>
-              </tr>
-            ))}
-            {loading &&
-              Array.from({ length: 3 }, (_, index) => (
-                <tr
-                  className="skeleton-row"
-                  key={`skeleton-${index}`}
-                  aria-hidden="true"
-                >
-                  <td colSpan={7}>
-                    <span />
-                  </td>
-                </tr>
-              ))}
-          </tbody>
-        </table>
-        {drafts.length === 0 && (
-          <p className="empty-state">Nothing to review.</p>
-        )}
+      <div className="draft-queue-list" role="list" aria-label="Draft queue">
+        {drafts.map((draft) => {
+          const itemId = draft.draft_id ?? draft.lead_id;
+          const params = new URLSearchParams({ view, search, [view === "awaiting-draft" ? "lead" : "draft"]: itemId });
+          const href = `/drafts?${params}`;
+          return <article className={`draft-queue-item${selectedItemId === itemId ? " is-selected" : ""}`} key={draft.id} role="listitem">
+            <Link href={href} scroll={false} aria-current={selectedItemId === itemId ? "true" : undefined}>
+              <span className="draft-row-title">{draft.company_name ?? draft.domain}</span>
+              <span className="draft-row-domain">{draft.domain}</span>
+              <span className="draft-row-email">{draft.email}</span>
+              <span className="draft-row-meta">
+                <span className={`badge ${view === "awaiting-draft" ? "badge-awaiting" : draft.human_approval === "APPROVED" ? "badge-approved" : "badge-pending"}`}>
+                  {view === "awaiting-draft" ? "Awaiting draft" : draft.human_approval.replaceAll("_", " ")}
+                </span>
+                {draft.version !== null && <span>Version {draft.version}</span>}
+              </span>
+              <small>Updated {updatedDateFormat.format(new Date(draft.updated_at))}</small>
+            </Link>
+          </article>;
+        })}
+        {loading && Array.from({ length: 3 }, (_, index) => <div className="skeleton-card" key={`skeleton-${index}`} aria-hidden="true"><span /><span /></div>)}
+        {drafts.length === 0 && <p className="empty-state">Nothing to review.</p>}
       </div>
       <div className="pagination">
         <span>

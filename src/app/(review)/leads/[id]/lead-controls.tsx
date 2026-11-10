@@ -27,7 +27,7 @@ function validEmail(value: string): boolean {
   return value === value.toLowerCase() && /^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/.test(value);
 }
 
-export default function LeadControls({ lead }: { lead: LeadEdit }) {
+export default function LeadControls({ lead, returnHref = "/leads" }: { lead: LeadEdit; returnHref?: string }) {
   const router = useRouter();
   const dialogRef = useRef<HTMLDialogElement>(null);
   const [values, setValues] = useState<Record<Field, string>>(() => getValues(lead));
@@ -68,8 +68,13 @@ export default function LeadControls({ lead }: { lead: LeadEdit }) {
       const response = await fetch(`/api/leads/${lead.id}/actions`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action, note }) });
       const result = (await response.json()) as { message?: string };
       if (!response.ok) { setMessage(result.message ?? "Could not update this lead."); dialogRef.current?.close(); return; }
-      setMessage(action === "approve" ? "Approved, moved to Drafts." : action === "revoke" && undoApproval ? "Approval undone." : "Lead updated.");
-      setUndoApproval(action === "approve");
+      if (action === "approve") {
+        const separator = returnHref.includes("?") ? "&" : "?";
+        router.push(`${returnHref}${separator}approved=${encodeURIComponent(lead.id)}`);
+        return;
+      }
+      setMessage(action === "revoke" && undoApproval ? "Approval undone." : "Lead updated.");
+      setUndoApproval(false);
       setAction(null); setNote(""); dialogRef.current?.close(); router.refresh();
     } catch { setMessage("Could not update this lead."); }
     finally { setBusy(false); }
@@ -82,11 +87,11 @@ export default function LeadControls({ lead }: { lead: LeadEdit }) {
   return (
     <section className="panel page-stack">
       <h2>Lead review</h2>
-      {undoApproval && <div className="notice"><strong>Approved, moved to Drafts.</strong><div className="action-row"><button type="button" onClick={() => openAction("revoke")}>Undo approval</button><Link className="text-link-button" href="/drafts?view=to-review">Continue to Drafts</Link></div></div>}
+      {undoApproval && <div className="notice"><strong>Approval undone.</strong><div className="action-row"><Link className="text-link-button" href={returnHref}>Return to queue</Link></div></div>}
       {lead.archived && <p className="notice">Archived leads are read-only.</p>}
       {!undoApproval && !lead.archived && <>
       <form className="form-grid lead-edit-form" onSubmit={save}>
-        {fields.map((field) => <label key={field} id={field === "email" ? "lead-email-label" : undefined}>{field.replaceAll("_", " ")}<input id={field === "email" ? "lead-email" : undefined} type={field === "email" ? "email" : "text"} maxLength={field === "email" ? 320 : field === "phone" ? 40 : 500} value={values[field]} aria-invalid={field === "email" && values.email.length > 0 && !emailIsValid} onChange={(event) => setValues((current) => ({ ...current, [field]: event.target.value }))} />{field === "email" && values.email.length > 0 && !emailIsValid && <small className="field-error">Enter a valid lowercase email address.</small>}</label>)}
+        {fields.map((field) => <label key={field} id={field === "email" ? "lead-email-label" : undefined}>{field.replaceAll("_", " ")}<input id={field === "email" ? "lead-email" : field} type={field === "email" ? "email" : "text"} maxLength={field === "email" ? 320 : field === "phone" ? 40 : 500} value={values[field]} aria-invalid={field === "email" && values.email.length > 0 && !emailIsValid} onChange={(event) => setValues((current) => ({ ...current, [field]: event.target.value }))} />{field === "email" && values.email.length > 0 && !emailIsValid && <small className="field-error">Enter a valid lowercase email address.</small>}</label>)}
         {dirty && <strong>Unsaved changes</strong>}
         {lead.human_approval === "APPROVED" && <p className="notice">Changing the email resets approval.</p>}
         <div className="action-row"><button type="submit" disabled={busy || !dirty}>{busy ? "Saving…" : "Save facts"}</button><button type="button" disabled={busy || !dirty} onClick={() => setValues(savedValues)}>Cancel</button></div>

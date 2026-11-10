@@ -1,34 +1,32 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import LogoutButton from "@/app/logout-button";
 import { requireSessionUser } from "@/lib/server/auth/session";
+import { getDraftQueueCounts } from "@/lib/server/review/draft-queue";
+import { getLeadQueueCount } from "@/lib/server/review/lead-queue";
+import ReviewNavigation from "./review-navigation";
 
-const links = [
-  ["Leads", "/leads"],
-  ["Drafts", "/drafts"],
-  ["All", "/all"],
-  ["Import", "/import"],
-  ["History", "/history"],
-] as const;
-
-export default async function ReviewLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+export default async function ReviewLayout({
+  children,
+  modal,
+}: Readonly<{ children: React.ReactNode; modal: React.ReactNode }>) {
   const user = await requireSessionUser();
   if (!user.isActive) redirect("/login");
+  const [leadCount, draftCounts] = await Promise.all([
+    getLeadQueueCount(),
+    getDraftQueueCounts(),
+  ]);
   return (
     <div className="review-shell">
-      <header className="review-header">
-        <Link className="brand" href="/leads">Lead Review</Link>
-        <nav aria-label="Main navigation">
-          {links.map(([label, href]) => <Link key={href} href={href}>{label}</Link>)}
-          {user.role === "admin" && <Link href="/users">Users</Link>}
-          {user.role === "admin" && <Link href="/audit">Audit</Link>}
-        </nav>
-        <div className="user-menu">
-          <span>{user.name} · {user.role}</span>
-          <LogoutButton />
-        </div>
-      </header>
+      <ReviewNavigation
+        userName={user.name}
+        role={user.role}
+        leadCount={leadCount}
+        draftCount={draftCounts["to-review"]}
+      >
+        <LogoutButton />
+      </ReviewNavigation>
       <main className="review-main">{children}</main>
+      {modal}
     </div>
   );
 }

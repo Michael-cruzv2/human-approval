@@ -13,8 +13,7 @@ type DraftDetail = {
   lead_approval: string; lead_archived: boolean;
 };
 
-export default async function DraftDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
+export async function DraftDetailContent({ id, embedded = false, returnHref = "/drafts?view=to-review" }: { id: string; embedded?: boolean; returnHref?: string }) {
   if (!z.uuid().safeParse(id).success) notFound();
   const result = await query<DraftDetail>(
     `SELECT d.id, d.lead_id, d.version, d.subject, d.body_text, d.ai_opener,
@@ -27,5 +26,10 @@ export default async function DraftDetailPage({ params }: { params: Promise<{ id
   );
   const draft = result.rows[0];
   if (!draft) notFound();
-  return <DraftReview draft={draft} />;
+  return <DraftReview draft={draft} embedded={embedded} returnHref={returnHref} />;
+}
+
+export default async function DraftDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  return <DraftDetailContent id={id} />;
 }

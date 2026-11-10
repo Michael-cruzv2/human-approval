@@ -2,6 +2,13 @@
 
 Follow [UI_SKILL.md](./UI_SKILL.md) for all interface structure, behaviour and safety; it supersedes this file where they differ. Clean, calm, fast, keyboard-friendly, desktop-first (usable on a phone), with light and dark mode.
 
+## Visual system
+- Use a cool neutral canvas (`#EDF0F3` in light mode), white/quiet panels, ink text (`#1B2430`), muted secondary text, and restrained borders.
+- Leads uses teal (`#0F766E`) and Drafts uses purple (`#5B3FA3`); All remains neutral. Status colors are muted and consistent.
+- Pair editorial serif headings with a clean sans-serif interface. Keep surfaces flat, shadows minimal, corners restrained, and motion subtle.
+- Maintain the same hierarchy in dark mode with dark neutral surfaces and accessible contrast. Do not use gradients or decorative dashboards.
+- Leads and Drafts use a desktop master-detail workspace and switch to separate queue/detail views on mobile. All detail opens as a dismissible read-only drawer while preserving the overview state.
+
 ## Navigation
 Top bar: **Leads · Drafts · All · Import · History** and (admin only) **Users · Audit**. The app opens on Leads; All is the overview. User menu: name, role, log out, log out everywhere.
 

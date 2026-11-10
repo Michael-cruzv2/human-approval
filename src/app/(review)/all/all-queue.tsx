@@ -97,6 +97,7 @@ export default function AllQueue({
               <th>Draft</th>
               <th>Send</th>
               <th>Last updated</th>
+              <th><span className="visually-hidden">Actions</span></th>
             </tr>
           </thead>
           <tbody>
@@ -122,6 +123,11 @@ export default function AllQueue({
                     {lastUpdatedFormat.format(new Date(lead.updated_at))}
                   </time>
                 </td>
+                <td>
+                  <Link className="all-open-link" scroll={false} href={`/all/${lead.id}?back=${encodeURIComponent(backToAll)}`}>
+                    View
+                  </Link>
+                </td>
               </tr>
             ))}
             {loading &&
@@ -131,7 +137,7 @@ export default function AllQueue({
                   key={`skeleton-${index}`}
                   aria-hidden="true"
                 >
-                  <td colSpan={9}>
+                  <td colSpan={10}>
                     <span />
                   </td>
                 </tr>

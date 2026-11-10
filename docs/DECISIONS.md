@@ -25,6 +25,7 @@ Agents: add Open questions here, never guess. The owner answers; move answered i
 - D20 Draft review has two required-note rejection transitions: reject the draft only, or atomically reject the draft and return the lead to verification. Returning is blocked once sending is SENDING or SENT and writes `DRAFT_REJECT` plus `LEAD_RETURNED` audit actions.
 - D21 The Drafter must create drafts only for leads whose exact `human_approval` is `APPROVED` and whose email is valid. The Drafts tab likewise excludes any other lead.
 - D22 Leads, Drafts and All lists use keyset Load more pages of 25; All is ordered by `(updated_at DESC, id ASC)`.
+- D23 The Review App visual direction is cool neutral and editorial: teal for Leads, purple for Drafts, restrained neutral All surfaces, serif headings, subtle flat panels, and light/dark themes. Leads and Drafts use master-detail layouts; All details open in a read-only drawer.
 
 ## Open questions (owner to answer)
 - O1 `NEEDS_REVIEW` leads: the mailer's view requires `agent_approval = 'VERIFIED'`. Should a human be able to override this (needs a new human-owned column, e.g. `human_verified`), or must NEEDS_REVIEW leads be fixed by LeadSearch re-verification? Default until answered: humans may edit and approve them, the UI warns they are not sendable, and nothing else changes.
@@ -33,6 +34,7 @@ Agents: add Open questions here, never guess. The owner answers; move answered i
 - O5 Should a rejected lead be re-openable by operators or admin only? Default: any user.
 - O6 Should the admin be able to change `settings` (sending switches, ceilings) from this app? Default: read-only display; the owner changes them directly in the database or Trigger.dev.
 - O7 Draft redraft flow: a rejected draft needs the Drafter to create a new version. Should the Review App have a "request redraft" action? Default: no; the Drafter picks up approved leads with no live draft.
+- O8 The repository does not define which anti-spam tags are allowed for drafting. The Leads readiness checklist marks this as needing policy confirmation and does not infer an allowlist; decide the allowed tags before treating the checklist as a complete readiness gate.
 
 ## Rules review evidence (T19 in progress)
 - R1: OTP-only Mailgun adapter in `src/lib/server/auth/email.ts`; app source scan rejects writes to `email_sends`, `email_attempts`, and `suppressions` (`tests/static-contract.test.mjs`).
@@ -58,6 +60,7 @@ T19 remains open until the database-backed and manual scenarios in `docs/TESTING
 
 ## UI contract change log
 - 2026-11-10: Adopted `docs/UI_SKILL.md` as the controlling UI brief. Replaced the prior two-tab model with Leads, Drafts and All; added email-gated lead approval, draft send-back, and keyset pagination. Updated `RULES.md`, `DATA_CONTRACT.md`, and `UI_SPEC.md` accordingly.
+- 2026-11-10: Applied the visual system in `docs/UI_SKILL.md`: neutral editorial surfaces, job-specific accents, responsive master-detail queues, a read-only All drawer, and light/dark themes.
 
 ## Open implementation questions
 - O10 `SESSION_SECRET` is required by `docs/SECURITY.md`, but the auth contract defines opaque random sessions stored as SHA-256 hashes and does not define a use for this secret. Keep validating it at startup; clarify before using it for another purpose.

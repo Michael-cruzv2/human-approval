@@ -28,7 +28,7 @@ function validEmail(value: string | null): boolean {
   return Boolean(value && value === value.toLowerCase() && /^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/.test(value));
 }
 
-export default function DraftReview({ draft }: { draft: Draft }) {
+export default function DraftReview({ draft, embedded = false, returnHref = "/drafts?view=to-review" }: { draft: Draft; embedded?: boolean; returnHref?: string }) {
   const router = useRouter();
   const dialogRef = useRef<HTMLDialogElement>(null);
   const [subject, setSubject] = useState(draft.subject);
@@ -50,7 +50,13 @@ export default function DraftReview({ draft }: { draft: Draft }) {
     async function checkLead() {
       try {
         const response = await fetch(`/api/drafts/${draft.id}`, { cache: "no-store" });
-        if (!response.ok) return;
+        if (!response.ok) {
+          if (active) {
+            setLeadChanged(true);
+            setMessage("Could not verify the lead. Refresh review before continuing.");
+          }
+          return;
+        }
         const result = await response.json() as { draft?: { lead_approval: string; lead_email: string | null; lead_archived: boolean } };
         const current = result.draft;
         if (active && current && (
@@ -139,18 +145,18 @@ export default function DraftReview({ draft }: { draft: Draft }) {
       }
       dialogRef.current?.close();
       if (action === "return" && result.returned) {
-        router.push("/leads?status=PENDING");
+        router.push(`/leads?status=PENDING&returned=true&lead=${encodeURIComponent(draft.lead_id)}`);
         return;
       }
       if (action === "reject") {
-        router.push("/drafts?view=awaiting-draft");
+        router.push(`/drafts?view=awaiting-draft&lead=${encodeURIComponent(draft.lead_id)}`);
         return;
       }
-      setApproval(action === "approve" ? "APPROVED" : "PENDING");
-      setMessage(action === "approve" ? "Draft approved." : "Draft approval revoked.");
-      setAction(null);
-      setNote("");
-      router.refresh();
+      if (action === "approve") {
+        router.push(`/drafts?view=approved&draft=${encodeURIComponent(draft.id)}`);
+        return;
+      }
+      router.push(`/drafts?view=to-review&draft=${encodeURIComponent(draft.id)}`);
     } catch {
       setMessage("Could not update this draft.");
     } finally {
@@ -165,10 +171,10 @@ export default function DraftReview({ draft }: { draft: Draft }) {
   }
 
   return (
-    <section className="page-stack">
+    <section className={`page-stack draft-review-content${embedded ? " embedded-detail" : ""}`}>
       <header className="page-heading">
-        <div><p className="eyebrow">Draft review · Version {draft.version}</p><h1>{draft.company_name ?? draft.domain}</h1></div>
-        <Link href="/drafts?view=to-review">Back to drafts</Link>
+        <div>{embedded && <Link className="mobile-back-link" href={returnHref}>Back to drafts</Link>}<p className="eyebrow">Draft review · Version {draft.version}</p><h1>{draft.company_name ?? draft.domain}</h1></div>
+        {!embedded && <Link href={returnHref}>Back to drafts</Link>}
       </header>
       {(leadChanged || draft.lead_approval !== "APPROVED" || draft.lead_archived || !validEmail(draft.email)) && (
         <aside className="notice" role="alert">
@@ -180,6 +186,7 @@ export default function DraftReview({ draft }: { draft: Draft }) {
       <section className="panel lead-strip">
         <div><strong>{draft.company_name ?? draft.domain}</strong><span>{draft.domain}</span></div>
         <span>{draft.country ?? "Country unknown"}</span>
+        <span className="recipient-chip">Recipient · {draft.email ?? "No email address"}</span>
         <span className="badge" title="Screening aid only; not legal clearance">{draft.antispam_tag}</span>
         <Link href={`/all/${draft.lead_id}`}>Open lead</Link>
       </section>
@@ -220,6 +227,7 @@ export default function DraftReview({ draft }: { draft: Draft }) {
         {action === "return" && <p>The draft will be rejected and the lead returned to Pending verification. This note will be saved on both records.</p>}
         <dl><div><dt>Recipient</dt><dd>{draft.email ?? "—"}</dd></div><div><dt>Anti-spam tag</dt><dd>{draft.antispam_tag} — screening aid only, not legal clearance</dd></div></dl>
         <h3>{subject}</h3><pre>{body}</pre>
+        <p className="draft-hash">Content version: <code>{contentHash}</code></p>
         {(action === "reject" || action === "return") && <label>Note<textarea value={note} required onChange={(event) => setNote(event.target.value)} /></label>}
         <div className="dialog-actions">
           <button type="button" onClick={() => dialogRef.current?.close()}>Cancel</button>

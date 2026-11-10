@@ -24,6 +24,8 @@ const QuerySchema = z
       .or(z.literal(""))
       .default(""),
     search: z.string().max(100).default(""),
+    email: z.enum(["ALL", "MISSING"]).default("ALL"),
+    returned: z.enum(["true", "false"]).default("false"),
     cursorAt: z.string().datetime().optional(),
     cursorId: z.uuid().optional(),
   })
@@ -47,6 +49,8 @@ export async function GET(request: Request): Promise<Response> {
     tag: parsed.data.tag,
     country: parsed.data.country,
     search: parsed.data.search,
+    email: parsed.data.email,
+    returned: parsed.data.returned === "true",
   };
   const result = await getLeadQueuePage(
     filters,
