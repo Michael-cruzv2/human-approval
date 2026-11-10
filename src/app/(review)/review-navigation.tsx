@@ -11,13 +11,18 @@ type Props = {
   children: React.ReactNode;
 };
 
-const links: { label: string; href: string; job?: "leads" | "drafts" | "all"; count?: "lead" | "draft" }[] = [
+const links: {
+  label: string;
+  href: string;
+  job?: "leads" | "drafts" | "all";
+  count?: "lead" | "draft";
+}[] = [
   { label: "Leads", href: "/leads", job: "leads", count: "lead" },
   { label: "Drafts", href: "/drafts", job: "drafts", count: "draft" },
   { label: "All", href: "/all", job: "all" },
   { label: "Import", href: "/import" },
   { label: "History", href: "/history" },
-] as const;
+];
 
 export default function ReviewNavigation({
   userName,
@@ -35,21 +40,19 @@ export default function ReviewNavigation({
     .join("");
 
   return (
-    <header className="review-header">
+    <header className="topbar">
       <Link className="brand" href="/leads" aria-label="Review home">
         Review
       </Link>
-      <nav aria-label="Main navigation">
+      <nav className="tabs" aria-label="Main navigation">
         {links.map(({ label, href, job, count }) => {
-          const current =
-            pathname === href || pathname.startsWith(`${href}/`);
+          const current = pathname === href || pathname.startsWith(`${href}/`);
           const value =
             count === "lead" ? leadCount : count === "draft" ? draftCount : null;
           return (
             <Link
               key={href}
-              className={job ? `tab-link tab-${job}` : "tab-link"}
-              data-job={job}
+              className={job ? `tab-link tab-${job}` : "tab-link tab-secondary"}
               href={href}
               aria-current={current ? "page" : undefined}
             >
@@ -60,17 +63,46 @@ export default function ReviewNavigation({
         })}
         {role === "admin" && (
           <>
-            <Link className="utility-link" href="/users" aria-current={pathname === "/users" ? "page" : undefined}>Users</Link>
-            <Link className="utility-link" href="/audit" aria-current={pathname === "/audit" ? "page" : undefined}>Audit</Link>
+            <Link
+              className="tab-link utility-link tab-secondary"
+              href="/users"
+              aria-current={pathname === "/users" ? "page" : undefined}
+            >
+              Users
+            </Link>
+            <Link
+              className="tab-link utility-link tab-secondary"
+              href="/audit"
+              aria-current={pathname === "/audit" ? "page" : undefined}
+            >
+              Audit
+            </Link>
           </>
         )}
       </nav>
-      <div className="user-menu">
-        <span className="user-name">{userName}</span>
-        <span className="user-role">{role}</span>
-        <span className="user-avatar" aria-hidden="true">{initials || "U"}</span>
-        {children}
-      </div>
+      <details className="user-menu">
+        <summary aria-label={`Account menu for ${userName}`}>
+          <span className="account-name">{userName}</span>
+          <span className="avatar" aria-hidden="true">{initials || "U"}</span>
+        </summary>
+        <div className="user-menu-panel">
+          <div className="meta">
+            <strong>{userName}</strong>
+            {role === "admin" ? "Administrator" : "Operator"}
+          </div>
+          {children}
+          <nav className="menu-utilities" aria-label="Other sections">
+            <Link href="/import">Import</Link>
+            <Link href="/history">History</Link>
+            {role === "admin" && (
+              <>
+                <Link href="/users">Users</Link>
+                <Link href="/audit">Audit</Link>
+              </>
+            )}
+          </nav>
+        </div>
+      </details>
     </header>
   );
 }

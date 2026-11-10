@@ -15,7 +15,7 @@ export default function GlobalError({
             <h1>Something went wrong</h1>
             <p>Please try again. Reference:</p>
             <p className="request-id">{error.digest ?? "Reference unavailable"}</p>
-            <button className="auth-action" type="button" onClick={reset}>
+            <button className="btn btn-primary" type="button" onClick={reset}>
               Try again
             </button>
           </section>

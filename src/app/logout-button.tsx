@@ -6,13 +6,13 @@ import { useRouter } from "next/navigation";
 export default function LogoutButton() {
   const router = useRouter();
   const [message, setMessage] = useState("");
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState<"one" | "all" | null>(null);
 
-  async function logout() {
-    setBusy(true);
+  async function logout(endpoint: string, scope: "one" | "all") {
+    setBusy(scope);
     setMessage("");
     try {
-      const response = await fetch("/api/auth/logout-everywhere", { method: "POST" });
+      const response = await fetch(endpoint, { method: "POST" });
       if (!response.ok) {
         setMessage("Could not sign out. Try again.");
         return;
@@ -21,18 +21,31 @@ export default function LogoutButton() {
     } catch {
       setMessage("Could not sign out. Try again.");
     } finally {
-      setBusy(false);
+      setBusy(null);
     }
   }
 
   return (
-    <div>
-      <button className="auth-action" type="button" onClick={logout} disabled={busy}>
-        {busy ? "Signing out…" : "Log out everywhere"}
+    <>
+      <button
+        type="button"
+        onClick={() => logout("/api/auth/logout", "one")}
+        disabled={busy !== null}
+      >
+        {busy === "one" ? "Signing out…" : "Log out"}
       </button>
-      <p className="form-message" role="status" aria-live="polite">
-        {message}
-      </p>
-    </div>
+      <button
+        type="button"
+        onClick={() => logout("/api/auth/logout-everywhere", "all")}
+        disabled={busy !== null}
+      >
+        {busy === "all" ? "Signing out…" : "Log out everywhere"}
+      </button>
+      {message && (
+        <p className="form-message" role="status" aria-live="polite">
+          {message}
+        </p>
+      )}
+    </>
   );
 }
