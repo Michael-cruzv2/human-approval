@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import LeadFullData from "./lead-full-data";
+import { Spinner } from "@/components/spinner";
 
 export type LeadActivity = { action: string; at: string; name: string | null };
 
@@ -332,7 +333,7 @@ export default function LeadDetailView({
 
   return (
     <>
-      <section className={`page-stack lead-detail-content${embedded ? " embedded-detail" : ""}`}>
+      <section className={`page-stack lead-detail-content${embedded ? " embedded-detail" : ""}`} aria-busy={false}>
         <header className="detail-head">
           <div>
             {embedded && <Link className="mobile-back-link" href={backHref}>← Leads</Link>}
@@ -366,8 +367,8 @@ export default function LeadDetailView({
               <button className="btn btn-ghost" type="button" disabled={busy} onClick={() => setValues(savedValues)}>
                 Cancel
               </button>
-              <button className="btn btn-leads" type="submit" form="lead-facts-form" disabled={busy}>
-                {busy ? "Saving…" : "Save changes"}
+              <button className={`btn btn-leads${busy ? " busy" : ""}`} type="submit" form="lead-facts-form" disabled={busy}>
+                {busy ? <><Spinner size="sm" />Saving…</> : "Save changes"}
               </button>
             </div>
           )}
@@ -581,26 +582,54 @@ export default function LeadDetailView({
             )}
             {dirty && canDecide && <span className="blocked-reason">Save changes before deciding</span>}
             {readOnly && <span className="blocked-reason">Archived</span>}
-            {!readOnly && <button className="btn btn-ghost" type="button" onClick={() => openAction("archive")}>Archive</button>}
+            {!readOnly && (
+              <button
+                className={`btn btn-ghost${busy ? " busy" : ""}`}
+                type="button"
+                disabled={busy}
+                onClick={() => openAction("archive")}
+              >
+                {busy ? <><Spinner size="sm" />Archiving…</> : "Archive"}
+              </button>
+            )}
             {lead.human_approval === "APPROVED" && !readOnly && (
-              <button className="btn btn-stop" type="button" onClick={() => openAction("revoke")}>Revoke approval</button>
+              <button
+                className={`btn btn-stop${busy ? " busy" : ""}`}
+                type="button"
+                disabled={busy}
+                onClick={() => openAction("revoke")}
+              >
+                {busy ? <><Spinner size="sm" />Revoking…</> : "Revoke approval"}
+              </button>
             )}
             {lead.human_approval === "REJECTED" && !readOnly && (
-              <button className="btn" type="button" onClick={() => openAction("reopen")}>Reopen</button>
+              <button
+                className={`btn${busy ? " busy" : ""}`}
+                type="button"
+                disabled={busy}
+                onClick={() => openAction("reopen")}
+              >
+                {busy ? <><Spinner size="sm" />Reopening…</> : "Reopen"}
+              </button>
             )}
             {canDecide && (
               <>
-                <button className="btn btn-stop" type="button" disabled={dirty} onClick={() => openAction("reject")}>
-                  <CrossIcon /> Reject <kbd>r</kbd>
+                <button
+                  className={`btn btn-stop${busy ? " busy" : ""}`}
+                  type="button"
+                  disabled={busy || dirty}
+                  onClick={() => openAction("reject")}
+                >
+                  {busy ? <><Spinner size="sm" />Rejecting…</> : <><CrossIcon /> Reject <kbd>r</kbd></>}
                 </button>
                 <button
-                  className={`btn ${approveBlocked ? "" : "btn-leads"}`}
+                  className={`btn ${approveBlocked ? "" : "btn-leads"}${busy ? " busy" : ""}`}
                   type="button"
-                  disabled={approveBlocked}
+                  disabled={busy || approveBlocked}
                   aria-describedby={!emailIsValid ? "approve-email-reason" : undefined}
                   onClick={() => openAction("approve")}
                 >
-                  <CheckIcon /> Approve
+                  {busy ? <><Spinner size="sm" />Approving…</> : <><CheckIcon /> Approve</>}
                 </button>
               </>
             )}

@@ -1,7 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { Skeleton } from "@/components/skeleton";
+import { EmptyState } from "@/components/empty-state";
+import { ErrorState } from "@/components/error-state";
+import { LoadingBanner } from "@/components/loading-banner";
 
 type DraftQueueItem = {
   id: string;
@@ -47,6 +51,13 @@ export default function DraftQueue({
   const [hasMore, setHasMore] = useState(initiallyHasMore);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [slow, setSlow] = useState(false);
+  const [errorState, setErrorState] = useState(false);
+  const [requestId, setRequestId] = useState("");
+  const startRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const slowRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const errorRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const mountedRef = useRef(false);
 
   async function loadMore() {
     if (loading || !hasMore || !drafts.length) return;
@@ -76,55 +87,123 @@ export default function DraftQueue({
     }
   }
 
+  useEffect(() => {
+    mountedRef.current = true;
+    if (loading) {
+      startRef.current = setTimeout(() => setSlow(true), 8000);
+      errorRef.current = setTimeout(() => {
+        if (mountedRef.current) {
+          setErrorState(true);
+          setRequestId(`req-${Date.now()}`);
+        }
+      }, 20000);
+    } else {
+      if (startRef.current) clearTimeout(startRef.current);
+      if (slowRef.current) clearTimeout(slowRef.current);
+      if (errorRef.current) clearTimeout(errorRef.current);
+      setTimeout(() => {
+        setSlow(false);
+        setErrorState(false);
+        setRequestId("");
+      }, 0);
+    }
+    return () => {
+      if (startRef.current) clearTimeout(startRef.current);
+      if (slowRef.current) clearTimeout(slowRef.current);
+      if (errorRef.current) clearTimeout(errorRef.current);
+    };
+  }, [loading]);
+
+  const showSkeleton = loading && !errorState;
+
   return (
     <>
-      <div className="draft-queue-list" role="list" aria-label="Draft queue">
-        {drafts.map((draft) => {
-          const itemId = draft.draft_id ?? draft.lead_id;
-          const params = new URLSearchParams({ view, search, [view === "awaiting-draft" ? "lead" : "draft"]: itemId });
-          const href = `/drafts?${params}`;
-          const status =
-            view === "awaiting-draft"
-              ? { className: "badge badge-awaiting", label: "Awaiting draft" }
-              : draft.human_approval === "APPROVED"
-                ? { className: "badge badge-approved", label: "Approved" }
-                : { className: "badge badge-pending", label: "Pending" };
-          const subtitle =
-            view === "awaiting-draft"
-              ? `Approved ${writtenLabel(draft.updated_at)}`
-              : `Draft ${draft.version ?? 1}, written ${writtenLabel(draft.updated_at)}`;
-          return (
-            <article className={`draft-queue-item${selectedItemId === itemId ? " is-selected" : ""}`} key={draft.id} role="listitem">
-              <Link href={href} scroll={false} aria-current={selectedItemId === itemId ? "true" : undefined}>
-                <span className="lead-row-head">
-                  <span className="lead-row-title">{draft.company_name ?? draft.domain}</span>
-                  <span className="lead-row-country">{draft.country ?? "—"}</span>
-                </span>
-                <span className="draft-row-domain">{subtitle}</span>
-                <span className="lead-row-meta">
-                  {draft.version !== null && draft.version > 1 && <span className="badge badge-new">New version</span>}
-                  <span className={status.className}>{status.label}</span>
-                </span>
-              </Link>
-            </article>
-          );
-        })}
-        {loading && Array.from({ length: 3 }, (_, index) => (
-          <div className="skeleton-card" key={`skeleton-${index}`} aria-hidden="true"><span /><span /></div>
-        ))}
-        {drafts.length === 0 && !loading && (
-          <p className="empty-state" style={{ padding: "1.5rem 1.25rem" }}>Nothing to review.</p>
-        )}
-      </div>
-      <div className="queue-foot">
-        <span>Showing {drafts.length} of {total}</span>
-        {error && <span role="alert">{error}</span>}
-        {hasMore && (
-          <button className="btn btn-sm" type="button" disabled={loading} onClick={loadMore}>
-            {loading ? "Loading…" : error ? "Retry" : "Load more"}
-          </button>
-        )}
-      </div>
+      {errorState && (
+        <ErrorState
+          title="Could not load drafts"
+          description="Your existing drafts are still safe. Try again to reload the queue."
+          requestId={requestId}
+          retryLabel="Try again"
+          onRetry={() => {
+            setErrorState(false);
+            setRequestId("");
+            setLoading(true);
+          }}
+        />
+      )}
+      {!errorState && slow && (
+        <LoadingBanner
+          message="Taking longer than usual"
+          onRetry={() => {
+            setLoading(true);
+            setSlow(false);
+          }}
+        />
+      )}
+      {!errorState && (
+        <>
+          <div className="draft-queue-list" role="list" aria-label="Draft queue" aria-busy={loading || slow}>
+            {drafts.map((draft) => {
+              const itemId = draft.draft_id ?? draft.lead_id;
+              const params = new URLSearchParams({ view, search, [view === "awaiting-draft" ? "lead" : "draft"]: itemId });
+              const href = `/drafts?${params}`;
+              const status =
+                view === "awaiting-draft"
+                  ? { className: "badge badge-awaiting", label: "Awaiting draft" }
+                  : draft.human_approval === "APPROVED"
+                    ? { className: "badge badge-approved", label: "Approved" }
+                    : { className: "badge badge-pending", label: "Pending" };
+              const subtitle =
+                view === "awaiting-draft"
+                  ? `Approved ${writtenLabel(draft.updated_at)}`
+                  : `Draft ${draft.version ?? 1}, written ${writtenLabel(draft.updated_at)}`;
+              return (
+                <article className={`draft-queue-item${selectedItemId === itemId ? " is-selected" : ""}`} key={draft.id} role="listitem">
+                  <Link href={href} scroll={false} aria-current={selectedItemId === itemId ? "true" : undefined}>
+                    <span className="lead-row-head">
+                      <span className="lead-row-title">{draft.company_name ?? draft.domain}</span>
+                      <span className="lead-row-country">{draft.country ?? "—"}</span>
+                    </span>
+                    <span className="draft-row-domain">{subtitle}</span>
+                    <span className="lead-row-meta">
+                      {draft.version !== null && draft.version > 1 && <span className="badge badge-new">New version</span>}
+                      <span className={status.className}>{status.label}</span>
+                    </span>
+                  </Link>
+                </article>
+              );
+            })}
+            {loading && showSkeleton && (
+              <>
+                <Skeleton width={170} height={14} className="skeleton-title" />
+                <Skeleton width={110} height={11} className="skeleton-subtitle" />
+                <Skeleton width={26} height={11} className="skeleton-meta" />
+                <Skeleton width={70} height={20} radius="999px" className="skeleton-chip" />
+              </>
+            )}
+            {!loading && drafts.length === 0 && (
+              <EmptyState
+                title="Nothing to review"
+                description="All pending drafts have been actioned. Approve a lead in the Leads tab to generate a draft."
+              />
+            )}
+          </div>
+          <div className="queue-foot">
+            <span>Showing {drafts.length} of {total}</span>
+            {!slow && error && <span role="alert">{error}</span>}
+            {hasMore && (
+              <button
+                className={`btn btn-sm ${loading ? "loading-more" : ""}`}
+                type="button"
+                disabled={loading}
+                onClick={loadMore}
+              >
+                {loading ? "Loading 25 more…" : error ? "Retry" : "Load more"}
+              </button>
+            )}
+          </div>
+        </>
+      )}
     </>
   );
 }

@@ -3,7 +3,7 @@
    surfaces, Charter for headings, one accent per job (teal Leads, plum Drafts). */
 
 :root {
-  color-scheme: light dark;
+  color-scheme: light;
 
   --sans: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --serif: Charter, "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
@@ -48,6 +48,7 @@
   --radius-panel: 10px;
   --topbar: 3.5rem;
   --queue: 23.75rem;
+  --main-pad: clamp(1rem, 1.6vw, 1.5rem);
   --ease: 160ms cubic-bezier(0.2, 0, 0.2, 1);
 }
 
@@ -384,14 +385,18 @@ input[type="file"]::file-selector-button:hover {
 /* ---------- shell ---------- */
 
 .review-shell {
-  min-height: 100vh;
+  display: flex;
+  height: 100vh;
+  height: 100dvh;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .topbar {
-  position: sticky;
+  position: relative;
   z-index: 30;
-  top: 0;
   display: flex;
+  flex: 0 0 auto;
   height: var(--topbar);
   align-items: stretch;
   gap: 1.75rem;
@@ -597,7 +602,10 @@ input[type="file"]::file-selector-button:hover {
 }
 
 .review-main {
-  padding: clamp(1rem, 1.6vw, 1.5rem);
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--main-pad);
 }
 
 .page-stack {
@@ -708,21 +716,41 @@ details > summary {
 
 /* ---------- Leads / Drafts workspace ---------- */
 
+/* The workspace is a fixed shell. The queue and the selected record own their
+   own scroll regions, so the record body can scroll under the queue header
+   and the pinned action bar without moving the rest of the screen. */
 .leads-workspace,
 .drafts-workspace {
   display: grid;
   grid-template-columns: var(--queue) minmax(0, 1fr);
-  align-items: start;
-  min-height: calc(100vh - var(--topbar));
-  margin: calc(-1 * clamp(1rem, 1.6vw, 1.5rem));
+  align-items: stretch;
+  height: 100%;
+  min-height: 0;
+  margin: calc(-1 * var(--main-pad));
+  overflow: hidden;
 }
 
 .lead-queue-pane,
 .draft-queue-pane {
+  display: flex;
   min-width: 0;
-  align-self: stretch;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
   border-right: 1px solid var(--line);
   background: var(--surface);
+}
+
+.lead-queue-pane > .queue-head,
+.lead-queue-pane > .filter-chips,
+.lead-queue-pane > .quiet-filters,
+.lead-queue-pane > .bulk-tools,
+.lead-queue-pane > .queue-foot,
+.draft-queue-pane > .queue-head,
+.draft-queue-pane > .filter-chips,
+.draft-queue-pane > .quiet-filters,
+.draft-queue-pane > .queue-foot {
+  flex: 0 0 auto;
 }
 
 .queue-head {
@@ -846,6 +874,12 @@ details > summary {
 .lead-queue-list,
 .draft-queue-list {
   display: grid;
+  flex: 1 1 auto;
+  align-content: start;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
   border-top: 1px solid var(--line);
 }
 
@@ -1001,6 +1035,12 @@ details > summary {
   font-variant-numeric: tabular-nums;
 }
 
+.lead-queue-pane > .queue-foot,
+.draft-queue-pane > .queue-foot {
+  border-top: 1px solid var(--line);
+  background: var(--surface);
+}
+
 .pagination {
   padding-inline: 0;
 }
@@ -1031,6 +1071,12 @@ details > summary {
 .lead-detail-pane,
 .draft-detail-pane {
   min-width: 0;
+  min-height: 0;
+  height: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  scroll-padding-block: 1.5rem 5.5rem;
   padding: 1.5rem clamp(1rem, 2vw, 1.75rem) 0;
 }
 
@@ -2463,7 +2509,7 @@ pre {
 
 /* ---------- dark ---------- */
 
-@media (prefers-color-scheme: dark) {
+@media (prefers-color-scheme: dark) and (color-scheme: dark) {
   :root {
     color-scheme: dark;
     --bg: #12161b;
@@ -2572,10 +2618,6 @@ pre {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .action-bar {
-    left: 0;
-  }
-
   .keyhints {
     display: none;
   }
@@ -2586,7 +2628,22 @@ pre {
     --topbar: 3.25rem;
   }
 
+  /* Phones use one normal document scroll again; the queue and detail are
+     separate screens rather than two fixed panes. */
+  .review-shell {
+    display: block;
+    height: auto;
+    min-height: 100vh;
+    overflow: visible;
+  }
+
+  .review-main {
+    overflow: visible;
+  }
+
   .topbar {
+    position: sticky;
+    top: 0;
     flex-wrap: wrap;
     height: auto;
     min-height: var(--topbar);
@@ -2634,18 +2691,33 @@ pre {
   .leads-workspace,
   .drafts-workspace {
     display: block;
+    height: auto;
     min-height: 0;
     margin: -0.875rem;
+    overflow: visible;
   }
 
   .lead-queue-pane,
   .draft-queue-pane {
+    display: block;
+    overflow: visible;
     border-right: 0;
+  }
+
+  .lead-queue-list,
+  .draft-queue-list {
+    overflow: visible;
   }
 
   .lead-detail-pane,
   .draft-detail-pane {
+    height: auto;
+    overflow: visible;
     padding: 1rem 0.875rem 0;
+  }
+
+  .action-bar {
+    left: 0;
   }
 
   .leads-workspace:not([data-has-selection="true"]) .lead-detail-pane,
@@ -2869,4 +2941,213 @@ pre {
 .lead-detail-content:not(.embedded-detail) .action-bar,
 .draft-review-content:not(.embedded-detail) .action-bar {
   left: 0;
+}
+
+/* ---------- loading & state components ---------- */
+
+/* Skeleton: neutral grey sweep, 1.6s, reduced-motion disables sweep */
+.sk {
+  display: block;
+  background: linear-gradient(90deg, #e4e8ed 20%, #f2f5f8 45%, #e4e8ed 70%);
+  background-size: 300% 100%;
+  animation: sw 1.6s ease-in-out infinite;
+  flex: none;
+}
+
+@keyframes sw {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: 0 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sk,
+  .spin,
+  .spin-sm {
+    animation: none !important;
+  }
+}
+
+/* Spinner: only inside buttons and small chips, colour follows job accent */
+.spin {
+  display: inline-block;
+  width: 13px;
+  height: 13px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: sp 0.8s linear infinite;
+  opacity: 0.85;
+  flex: none;
+}
+
+.spin-sm {
+  width: 11px;
+  height: 11px;
+}
+
+@keyframes sp {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Button with spinner: lock and show "Approving…" / "Saving…" */
+.btn.busy,
+.btn-sm.busy {
+  pointer-events: none;
+  opacity: 0.85;
+}
+
+.btn.busy .spin,
+.btn-sm.busy .spin {
+  color: inherit;
+}
+
+/* Empty state */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 1.5rem;
+  color: var(--ink-2);
+  text-align: center;
+}
+
+.empty-state p {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--ink-3);
+}
+
+/* Error state */
+.error-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 1.5rem;
+  text-align: center;
+}
+
+.error-state .error-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--bad-tint);
+  color: var(--bad);
+  display: grid;
+  place-items: center;
+  margin-bottom: 1rem;
+  flex: none;
+}
+
+.error-state h3 {
+  margin: 0 0 0.5rem;
+  font-size: 1.125rem;
+  color: var(--ink);
+}
+
+.error-state p {
+  margin: 0 0 1.5rem;
+  font-size: 0.875rem;
+  color: var(--ink-2);
+  max-width: 32rem;
+}
+
+.error-state .request-id {
+  font-family: var(--sans);
+  font-size: 0.75rem;
+  color: var(--ink-3);
+  margin-bottom: 1.5rem;
+  word-break: break-all;
+}
+
+/* Loading banner: shown at 8s */
+.loading-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--attention-soft);
+  border-bottom: 1px solid var(--attention-line);
+  color: var(--attention);
+  padding: 0.5rem 1rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+
+.loading-banner .spin {
+  width: 10px;
+  height: 10px;
+  border-width: 1.5px;
+}
+
+/* Progress line: background refresh */
+.progress-line {
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  height: 2px;
+  background: var(--line);
+}
+
+.progress-line i {
+  display: block;
+  width: 90px;
+  height: 100%;
+  background: var(--leads);
+  margin-left: 40px;
+  border-radius: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .progress-line i {
+    animation: none;
+  }
+}
+
+/* Updating chip */
+.updating-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--ink-2);
+}
+
+.updating-chip .spin-sm {
+  color: currentColor;
+}
+
+/* Load more button state */
+.btn.loading-more {
+  pointer-events: none;
+  opacity: 0.85;
+}
+
+/* Disable state for action buttons during async actions */
+.btn.disabled-action,
+.btn-sm.disabled-action {
+  pointer-events: none;
+  opacity: 0.6;
+}
+
+/* Existing skeleton-card and skeleton-row: keep for backward compat but align to new sk */
+.skeleton-card,
+.skeleton-row {
+  display: contents;
+}
+
+.skeleton-card span,
+.skeleton-row span {
+  display: block;
+  height: 0.625rem;
+  border-radius: 999px;
+  background: var(--surface-2);
 }

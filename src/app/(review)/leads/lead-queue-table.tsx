@@ -2,6 +2,10 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { Skeleton } from "@/components/skeleton";
+import { EmptyState } from "@/components/empty-state";
+import { ErrorState } from "@/components/error-state";
+import { LoadingBanner } from "@/components/loading-banner";
 
 type LeadListItem = {
   id: string;
@@ -47,6 +51,13 @@ export default function LeadQueueTable({
   const [selected, setSelected] = useState<string[]>([]);
   const [note, setNote] = useState("");
   const [message, setMessage] = useState("");
+  const [slow, setSlow] = useState(false);
+  const [errorState, setErrorState] = useState(false);
+  const [requestId, setRequestId] = useState("");
+  const startRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const slowRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const errorRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const mountedRef = useRef(false);
   const dialogRef = useRef<HTMLDialogElement>(null);
   const actionDialogRef = useRef<HTMLDialogElement>(null);
   const [keyboardLead, setKeyboardLead] = useState<LeadListItem | null>(null);
@@ -93,6 +104,33 @@ export default function LeadQueueTable({
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [leads]);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    if (loading) {
+      startRef.current = setTimeout(() => setSlow(true), 8000);
+      errorRef.current = setTimeout(() => {
+        if (mountedRef.current) {
+          setErrorState(true);
+          setRequestId(`req-${Date.now()}`);
+        }
+      }, 20000);
+    } else {
+      if (startRef.current) clearTimeout(startRef.current);
+      if (slowRef.current) clearTimeout(slowRef.current);
+      if (errorRef.current) clearTimeout(errorRef.current);
+      setTimeout(() => {
+        setSlow(false);
+        setErrorState(false);
+        setRequestId("");
+      }, 0);
+    }
+    return () => {
+      if (startRef.current) clearTimeout(startRef.current);
+      if (slowRef.current) clearTimeout(slowRef.current);
+      if (errorRef.current) clearTimeout(errorRef.current);
+    };
+  }, [loading]);
 
   async function loadMore() {
     if (loading || !hasMore || !leads.length) return;
@@ -167,9 +205,33 @@ export default function LeadQueueTable({
     }
   }
 
+  const showSkeleton = loading && !errorState;
+
   return (
     <>
-      {filters.status === "PENDING" && (selected.length > 0 || message) && (
+      {errorState && (
+        <ErrorState
+          title="Could not load leads"
+          description="Your existing leads are still safe. Try again to reload the queue."
+          requestId={requestId}
+          retryLabel="Try again"
+          onRetry={() => {
+            setErrorState(false);
+            setRequestId("");
+            setLoading(true);
+          }}
+        />
+      )}
+      {!errorState && slow && (
+        <LoadingBanner
+          message="Taking longer than usual"
+          onRetry={() => {
+            setLoading(true);
+            setSlow(false);
+          }}
+        />
+      )}
+      {!errorState && filters.status === "PENDING" && (selected.length > 0 || message) && (
         <div className="bulk-tools">
           <button className="btn btn-sm btn-stop" type="button" disabled={!selected.length} onClick={() => dialogRef.current?.showModal()}>
             Reject selected ({selected.length})
@@ -181,7 +243,14 @@ export default function LeadQueueTable({
           <span role="status">{message}</span>
         </div>
       )}
-      <div className="lead-queue-list" role="list" aria-label="Leads to verify">
+      {!errorState && (
+        <>
+          <div
+            className="lead-queue-list"
+            role="list"
+            aria-label="Leads to verify"
+            aria-busy={loading || slow}
+          >
         {leads.map((lead) => {
           const emailMissing = !hasValidEmail(lead.email);
           const params = new URLSearchParams({
@@ -237,20 +306,36 @@ export default function LeadQueueTable({
             </article>
           );
         })}
-        {loading && Array.from({ length: 3 }, (_, index) => (
-          <div className="skeleton-card" key={`skeleton-${index}`} aria-hidden="true"><span /><span /></div>
-        ))}
-        {leads.length === 0 && !loading && <p className="empty-state" style={{ padding: "1.5rem 1.25rem" }}>Nothing to review.</p>}
+        {loading && showSkeleton && (
+          <>
+            <Skeleton width={170} height={14} className="skeleton-title" />
+            <Skeleton width={110} height={11} className="skeleton-subtitle" />
+            <Skeleton width={26} height={11} className="skeleton-meta" />
+            <Skeleton width={70} height={20} radius="999px" className="skeleton-chip" />
+          </>
+        )}
+        {!loading && leads.length === 0 && (
+          <EmptyState
+            title="Nothing to review"
+            description="All pending leads have been actioned. Check back later or try the Rejected filter to reopen a lead."
+          />
+        )}
       </div>
       <div className="queue-foot">
         <span>Showing {leads.length} of {total}</span>
-        {error && <span role="alert">{error}</span>}
+        {!slow && error && <span role="alert">{error}</span>}
         {hasMore && (
-          <button className="btn btn-sm" type="button" disabled={loading} onClick={loadMore}>
-            {loading ? "Loading…" : error ? "Retry" : "Load more"}
+          <button
+            className={`btn btn-sm ${loading ? "loading-more" : ""}`}
+            type="button"
+            disabled={loading}
+            onClick={loadMore}
+          >
+            {loading ? "Loading 25 more…" : error ? "Retry" : "Load more"}
           </button>
         )}
       </div>
+        </>)} {/* end !errorState */}
       <dialog ref={dialogRef} className="confirm-dialog">
         <h2>Reject {selected.length} leads?</h2>
         <p>This action rejects the selected leads. Rejected leads can be reopened individually.</p>

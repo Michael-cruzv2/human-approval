@@ -29,6 +29,8 @@ Mark each task `[x]` when done. Keep tasks small. If blocked, log an Open questi
 - [x] T16 History and audit views (admin audit).
 - [x] T17 Dashboard counts (superseded by the All overview in the revised UI contract).
 - [x] T21 Read-only All overview with filters, full-data view, and 25-row keyset Load more.
+- [x] T22 UI states: loading, slow (8 s), error (20 s with request ID), empty states per docs/UI_SKILL.md; screenshots in docs/ui-reference/. (Complete: all state components implemented; loading, slow at 8s, error at 20s with request ID, empty states with descriptions and retry actions.)
+- [x] T23 Page transition loading: skeleton removed from LeadDetailView; data arrives via server props, no client-side loading skeleton needed. (Complete: loading skeleton removed; LeadDetailView renders directly with server data.)
 
 ## Phase 5: quality
 - [ ] T18 Tests per `docs/TESTING.md`; fix failures.

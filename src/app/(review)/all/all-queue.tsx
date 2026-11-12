@@ -1,7 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { Skeleton } from "@/components/skeleton";
+import { EmptyState } from "@/components/empty-state";
+import { ErrorState } from "@/components/error-state";
+import { LoadingBanner } from "@/components/loading-banner";
 
 type AllLead = {
   id: string;
@@ -97,6 +101,13 @@ export default function AllQueue({
   const [hasMore, setHasMore] = useState(initiallyHasMore);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [slow, setSlow] = useState(false);
+  const [errorState, setErrorState] = useState(false);
+  const [requestId, setRequestId] = useState("");
+  const startRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const slowRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const errorRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const mountedRef = useRef(false);
   const params = new URLSearchParams(filters);
   const backToAll = `/all?${params}`;
 
@@ -127,70 +138,143 @@ export default function AllQueue({
     }
   }
 
+  useEffect(() => {
+    mountedRef.current = true;
+    if (loading) {
+      startRef.current = setTimeout(() => setSlow(true), 8000);
+      errorRef.current = setTimeout(() => {
+        if (mountedRef.current) {
+          setErrorState(true);
+          setRequestId(`req-${Date.now()}`);
+        }
+      }, 20000);
+    } else {
+      if (startRef.current) clearTimeout(startRef.current);
+      if (slowRef.current) clearTimeout(slowRef.current);
+      if (errorRef.current) clearTimeout(errorRef.current);
+      setTimeout(() => {
+        setSlow(false);
+        setErrorState(false);
+        setRequestId("");
+      }, 0);
+    }
+    return () => {
+      if (startRef.current) clearTimeout(startRef.current);
+      if (slowRef.current) clearTimeout(slowRef.current);
+      if (errorRef.current) clearTimeout(errorRef.current);
+    };
+  }, [loading]);
+
+  const showSkeleton = loading && !errorState;
+
   return (
     <>
-      <div className="table-scroll">
-        <table>
-          <thead>
-            <tr>
-              <th>Lead</th>
-              <th>Country</th>
-              <th>Agent</th>
-              <th>Lead status</th>
-              <th>Email</th>
-              <th>Draft</th>
-              <th>Sending</th>
-              <th>Updated</th>
-              <th><span className="visually-hidden">Actions</span></th>
-            </tr>
-          </thead>
-          <tbody>
-            {leads.map((lead) => {
-              const agent = agentChip(lead.agent_approval);
-              const status = leadChip(lead.lead_status);
-              return (
-                <tr key={lead.id}>
-                  <td>
-                    <span className="cell-lead">
-                      <Link scroll={false} href={`/all/${lead.id}?back=${encodeURIComponent(backToAll)}`}>
-                        <strong>{lead.domain}</strong>
-                      </Link>
-                      <span>{lead.company_name ?? "—"}</span>
-                    </span>
-                  </td>
-                  <td data-label="Country">{lead.country ?? "—"}</td>
-                  <td data-label="Agent"><span className={agent.className}>{agent.label}</span></td>
-                  <td data-label="Lead status"><span className={status.className}>{status.label}</span></td>
-                  <td data-label="Email">
-                    {lead.email_present
-                      ? <span>Present</span>
-                      : <span className="badge badge-email-required">Missing</span>}
-                  </td>
-                  <td data-label="Draft">{draftCell(lead.draft_status)}</td>
-                  <td data-label="Sending">{sendCell(lead.send_status)}</td>
-                  <td data-label="Updated" className="lead-num">{updatedFormat.format(new Date(lead.updated_at))}</td>
-                  <td className="cell-action"><ActionLink lead={lead} back={backToAll} /></td>
+      {errorState && (
+        <ErrorState
+          title="Could not load leads"
+          description="Your existing leads are still safe. Try again to reload the overview."
+          requestId={requestId}
+          retryLabel="Try again"
+          onRetry={() => {
+            setErrorState(false);
+            setRequestId("");
+            setLoading(true);
+          }}
+        />
+      )}
+      {!errorState && slow && (
+        <LoadingBanner
+          message="Taking longer than usual"
+          onRetry={() => {
+            setLoading(true);
+            setSlow(false);
+          }}
+        />
+      )}
+      {!errorState && (
+        <>
+          <div className="table-scroll" aria-busy={loading || slow}>
+            <table>
+              <thead>
+                <tr>
+                  <th>Lead</th>
+                  <th>Country</th>
+                  <th>Agent</th>
+                  <th>Lead status</th>
+                  <th>Email</th>
+                  <th>Draft</th>
+                  <th>Sending</th>
+                  <th>Updated</th>
+                  <th><span className="visually-hidden">Actions</span></th>
                 </tr>
-              );
-            })}
-            {loading && Array.from({ length: 3 }, (_, index) => (
-              <tr className="skeleton-row" key={`skeleton-${index}`} aria-hidden="true">
-                <td colSpan={9}><span /></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {leads.length === 0 && <p className="empty-state" style={{ padding: "1.5rem 0.875rem" }}>No leads match these filters.</p>}
-      </div>
-      <div className="pagination">
-        <span className="muted">Showing {leads.length} of {total}</span>
-        {error && <span role="alert">{error}</span>}
-        {hasMore && (
-          <button className="btn btn-sm" type="button" disabled={loading} onClick={loadMore}>
-            {loading ? "Loading…" : error ? "Retry" : "Load more"}
-          </button>
-        )}
-      </div>
+              </thead>
+              <tbody>
+                {leads.map((lead) => {
+                  const agent = agentChip(lead.agent_approval);
+                  const status = leadChip(lead.lead_status);
+                  return (
+                    <tr key={lead.id}>
+                      <td>
+                        <span className="cell-lead">
+                          <Link scroll={false} href={`/all/${lead.id}?back=${encodeURIComponent(backToAll)}`}>
+                            <strong>{lead.domain}</strong>
+                          </Link>
+                          <span>{lead.company_name ?? "—"}</span>
+                        </span>
+                      </td>
+                      <td data-label="Country">{lead.country ?? "—"}</td>
+                      <td data-label="Agent"><span className={agent.className}>{agent.label}</span></td>
+                      <td data-label="Lead status"><span className={status.className}>{status.label}</span></td>
+                      <td data-label="Email">
+                        {lead.email_present
+                          ? <span>Present</span>
+                          : <span className="badge badge-email-required">Missing</span>}
+                      </td>
+                      <td data-label="Draft">{draftCell(lead.draft_status)}</td>
+                      <td data-label="Sending">{sendCell(lead.send_status)}</td>
+                      <td data-label="Updated" className="lead-num">{updatedFormat.format(new Date(lead.updated_at))}</td>
+                      <td className="cell-action"><ActionLink lead={lead} back={backToAll} /></td>
+                    </tr>
+                  );
+                })}
+                {loading && showSkeleton && (
+                  <>
+                    <tr key="skeleton-lead" aria-hidden="true">
+                      <td colSpan={9}><Skeleton width={120} height={12} /></td>
+                    </tr>
+                    <tr key="skeleton-agent" aria-hidden="true">
+                      <td colSpan={9}><Skeleton width={60} height={12} /></td>
+                    </tr>
+                    <tr key="skeleton-status" aria-hidden="true">
+                      <td colSpan={9}><Skeleton width={80} height={12} /></td>
+                    </tr>
+                  </>
+                )}
+              </tbody>
+            </table>
+            {!loading && leads.length === 0 && (
+              <EmptyState
+                title="Nothing to review"
+                description="No leads match these filters. Try adjusting the filters or check back later."
+              />
+            )}
+          </div>
+          <div className="pagination">
+            <span className="muted">Showing {leads.length} of {total}</span>
+            {!slow && error && <span role="alert">{error}</span>}
+            {hasMore && (
+              <button
+                className={`btn btn-sm ${loading ? "loading-more" : ""}`}
+                type="button"
+                disabled={loading}
+                onClick={loadMore}
+              >
+                {loading ? "Loading 25 more…" : error ? "Retry" : "Load more"}
+              </button>
+            )}
+          </div>
+        </>
+      )}
     </>
   );
 }

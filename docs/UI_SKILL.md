@@ -53,12 +53,22 @@ Never mix the jobs. A lead approval never approves a draft. Leads screens show n
 - Screening tags are shown as aids with a tooltip, never as legal clearance.
 
 ## States and accessibility
-- Skeleton loading, friendly empty state ("Nothing to review"), error state with request ID and retry. Optimistic UI only for harmless actions, never approvals.
+
+### Loading, slow, error and empty states
+- Placeholders mirror the loaded layout: real labels, tabs, search, filters and buttons render immediately; only values are placeholders, sized like the real content so nothing jumps.
+- Timing: show placeholders only if loading takes over 200 ms, then keep them at least 400 ms. At 8 s show "Taking longer than usual. Still trying." with Try again; at 20 s show the error state with a request ID.
+- Motion: one light sweep, 1.6 s; under `prefers-reduced-motion` no sweep, flat grey. Spinners only inside buttons and small chips, never over a page.
+- Colour: placeholders neutral grey in both jobs; only the active tab line, primary button and spinners use teal (Leads) or plum (Drafts).
+- Never optimistic for approve, reject, revoke, return or save: dialog stays open, buttons lock, labels read "Approving…" or "Saving…", and the UI changes only after the server confirms.
+- "Harmless" optimistic actions: filters, opening a drawer, switching tabs, and nothing that writes data.
+- Load more keeps existing rows, adds placeholder rows, button reads "Loading 25 more…". Background refresh keeps rows in place with a 2 px line and an "Updating…" chip.
+- Empty state says why and what happens next. Error state says what failed, what is safe, a request ID and one action.
+- Accessibility: `aria-busy` on the loading region, polite "Loading leads" announcement, focus never moves on its own, retry button reachable by keyboard.
 - Labelled inputs, visible focus, strong contrast, dialogs trap focus. Shortcuts: `j`/`k` move, `a` opens approve, `r` opens reject, `e` edits, `f` toggles full data. Shortcuts only open dialogs.
 
 ## Before finishing
 - Each tab does exactly one job; no draft content appears in Leads.
 - Approve is blocked without an email in both UI and server.
 - The send-back transaction changes both rows or neither.
-- Screenshots: Leads queue with an Email required lead, lead editing, full data view, draft review with both reject options, All tab with Load more, mobile layout.
+- Screenshots: loading (Leads and Drafts), Approve in progress, Load more in progress, slow, failed, empty, plus Leads queue with an Email required lead, lead editing, full data view, draft review with both reject options, All tab with Load more, mobile layout. `docs/ui-reference/` shows these screens; docs/RULES.md, DATA_CONTRACT.md and this file win if they differ.
 - Log anything unclear in `docs/DECISIONS.md` instead of guessing.

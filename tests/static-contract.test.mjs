@@ -109,7 +109,7 @@ test("lead approval requires a valid email in the UI, server action, and additiv
   assert.match(action, /isValidReviewEmail\(lead\.email\)/);
   assert.match(action, /EMAIL_REQUIRED/);
   assert.match(controls, /const approveBlocked = !emailIsValid \|\| dirty/);
-  assert.match(controls, /disabled=\{approveBlocked\}/);
+  assert.match(controls, /disabled=\{\s*(busy\s*\|\|\s*)?approveBlocked\}/);
   assert.match(controls, /Add an email to approve/);
   assert.match(controls, /<dialog/);
   assert.match(migration, /human_approval <> 'APPROVED'[\s\S]*email IS NOT NULL[\s\S]*email = lower\(email\)[\s\S]*email ~ /);

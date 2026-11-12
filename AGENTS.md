@@ -9,8 +9,10 @@ Nothing is ever sent without a human approving here. This app **never sends emai
 2. `docs/DATA_CONTRACT.md`: tables, column ownership, allowed status transitions.
 3. `docs/AUTH.md` and `docs/SECURITY.md`: email-OTP login and hardening.
 4. `docs/PRODUCT.md`, `docs/UI_SPEC.md`, `docs/IMPORT.md`: what to build.
-5. `docs/TASKS.md`: build order. `docs/TESTING.md`: what must pass. `docs/DECISIONS.md`: decided and open items.
-6. `db/schema.sql`, `db/002_review_app.sql`, `config/app.yaml`, `.env.example`.
+5. `docs/UI_SKILL.md`: UI structure, behaviour and safety (supersedes `docs/UI_SPEC.md` where they differ).
+6. `docs/ui-reference/`: screenshot reference for screens and loading, slow, error and empty states — reference only, never authoritative.
+7. `docs/TASKS.md`: build order. `docs/TESTING.md`: what must pass. `docs/DECISIONS.md`: decided and open items.
+8. `db/schema.sql`, `db/002_review_app.sql`, `config/app.yaml`, `.env.example`.
 
 ## The four neighbouring programs (do not touch their code or columns)
 - **LeadSearch** (Python): finds/verifies stores, inserts into `leads`.

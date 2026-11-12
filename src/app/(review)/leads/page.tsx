@@ -145,7 +145,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
           selectedLeadId={selectedLeadId}
         />
       </section>
-      <section className="lead-detail-pane" aria-label="Selected lead">
+      <section className="lead-detail-pane" aria-label="Selected lead" key={selectedLeadId}>
         {selectedLeadId ? (
           <LeadDetailContent id={selectedLeadId} embedded backHref={queueHref} />
         ) : (

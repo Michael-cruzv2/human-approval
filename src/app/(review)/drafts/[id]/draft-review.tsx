@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type FormEvent } from "react";
+import { Spinner } from "@/components/spinner";
 
 type Draft = {
   id: string;
@@ -261,8 +262,8 @@ export default function DraftReview({ draft, embedded = false, returnHref = "/dr
             <button className="btn btn-ghost" type="button" disabled={busy} onClick={() => { setSubject(savedSubject); setBody(savedBody); }}>
               Cancel
             </button>
-            <button className="btn btn-drafts" type="submit" form="draft-form" disabled={busy}>
-              {busy ? "Saving…" : "Save changes"}
+            <button className={`btn btn-drafts${busy ? " busy" : ""}`} type="submit" form="draft-form" disabled={busy}>
+              {busy ? <><Spinner size="sm" />Saving…</> : "Save changes"}
             </button>
           </div>
         )}
@@ -384,14 +385,29 @@ export default function DraftReview({ draft, embedded = false, returnHref = "/dr
           </div>
           <div className="action-bar-group">
             {dirty && <span className="blocked-reason">Save your edits before approving</span>}
-            <button className="btn btn-stop" type="button" disabled={dirty} onClick={() => openAction("return")}>
-              Reject and send lead back
+            <button
+              className={`btn btn-stop${busy ? " busy" : ""}`}
+              type="button"
+              disabled={busy || dirty}
+              onClick={() => openAction("return")}
+            >
+              {busy ? <><Spinner size="sm" />Sending back…</> : "Reject and send lead back"}
             </button>
-            <button className="btn btn-stop" type="button" disabled={dirty} onClick={() => openAction("reject")}>
-              <CrossIcon /> Reject draft
+            <button
+              className={`btn btn-stop${busy ? " busy" : ""}`}
+              type="button"
+              disabled={busy || dirty}
+              onClick={() => openAction("reject")}
+            >
+              {busy ? <><Spinner size="sm" />Rejecting…</> : <><CrossIcon /> Reject draft</>}
             </button>
-            <button className="btn btn-drafts" type="button" disabled={dirty} onClick={() => openAction("approve")}>
-              <CheckIcon /> Approve email
+            <button
+              className={`btn btn-drafts${busy ? " busy" : ""}`}
+              type="button"
+              disabled={busy || dirty}
+              onClick={() => openAction("approve")}
+            >
+              {busy ? <><Spinner size="sm" />Approving…</> : <><CheckIcon /> Approve email</>}
             </button>
           </div>
         </div>

@@ -112,7 +112,7 @@ export default async function DraftsPage({ searchParams }: { searchParams: Promi
           selectedItemId={selectedItemId}
         />
       </section>
-      <section className="draft-detail-pane" aria-label="Selected draft">
+      <section className="draft-detail-pane" aria-label="Selected draft" key={selectedItemId}>
         {view === "awaiting-draft" ? selectedAwaitingLead ? (
           <div className="page-stack awaiting-detail">
             <header className="detail-head">
