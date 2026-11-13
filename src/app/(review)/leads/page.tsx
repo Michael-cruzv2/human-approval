@@ -9,10 +9,10 @@ import ApprovalToast from "./approval-toast";
 
 export const dynamic = "force-dynamic";
 const Agent = z.enum(["VERIFIED", "NEEDS_REVIEW", "ALL"]);
-const Status = z.enum(["PENDING", "REJECTED", "ALL"]);
+const Status = z.enum(["PENDING", "APPROVED", "REJECTED", "ALL"]);
 const Tag = z.enum(["OPT_OUT_REGIME", "CONDITIONAL", "CONSENT_REQUIRED", "VARIES_REVIEW", "UNKNOWN_REVIEW", "ALL"]);
 
-type LeadQueueState = "PENDING" | "MISSING" | "RETURNED" | "REJECTED" | "ALL";
+type LeadQueueState = "PENDING" | "MISSING" | "RETURNED" | "APPROVED" | "REJECTED" | "ALL";
 
 /** One query per request even though the badge, list and detail panes each need it. */
 const loadLeadQueue = cache((key: string) => getLeadQueuePage(JSON.parse(key) as LeadQueueFilters));
@@ -28,6 +28,7 @@ function SearchIcon() {
 
 function badgeLabel(state: LeadQueueState, total: number): string {
   if (state === "ALL") return `${total} ${total === 1 ? "lead" : "leads"}`;
+  if (state === "APPROVED") return `${total} approved`;
   if (state === "REJECTED") return `${total} rejected`;
   return `${total} pending`;
 }
@@ -115,13 +116,15 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
   const state: LeadQueueState =
     status === "ALL"
       ? "ALL"
-      : status === "REJECTED"
-        ? "REJECTED"
-        : email === "MISSING"
-          ? "MISSING"
-          : returned
-            ? "RETURNED"
-            : "PENDING";
+      : status === "APPROVED"
+        ? "APPROVED"
+        : status === "REJECTED"
+          ? "REJECTED"
+          : email === "MISSING"
+            ? "MISSING"
+            : returned
+              ? "RETURNED"
+              : "PENDING";
 
   function chipHref(next: { status: LeadQueueFilters["status"]; email: "ALL" | "MISSING"; returned: boolean }) {
     return `/leads?${new URLSearchParams({
@@ -182,6 +185,12 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
             href={chipHref({ status: "PENDING", email: "ALL", returned: true })}
           >
             Returned
+          </Link>
+          <Link
+            aria-current={state === "APPROVED" ? "page" : undefined}
+            href={chipHref({ status: "APPROVED", email: "ALL", returned: false })}
+          >
+            Approved
           </Link>
           <Link
             aria-current={state === "REJECTED" ? "page" : undefined}

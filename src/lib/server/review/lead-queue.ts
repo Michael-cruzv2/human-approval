@@ -1,6 +1,6 @@
 import { query } from "@/lib/server/db";
 
-export type LeadQueueStatus = "PENDING" | "REJECTED" | "ALL";
+export type LeadQueueStatus = "PENDING" | "APPROVED" | "REJECTED" | "ALL";
 
 export type LeadQueueFilters = {
   status: LeadQueueStatus;
@@ -49,7 +49,12 @@ export async function getLeadQueuePage(
             count(*) OVER()::int AS total_count
        FROM leads
       WHERE archived=false
-        AND (($1='ALL' AND human_approval IN ('PENDING','REJECTED')) OR ($1<>'ALL' AND human_approval=$1))
+        AND contacted=false
+        AND NOT EXISTS (
+          SELECT 1 FROM email_sends sent
+           WHERE sent.lead_id=leads.id AND sent.status='SENT'
+        )
+        AND (($1='ALL' AND human_approval IN ('PENDING','APPROVED','REJECTED')) OR ($1<>'ALL' AND human_approval=$1))
         AND agent_approval <> 'REJECTED'
         AND ($2='ALL' OR agent_approval=$2)
         AND ($3='ALL' OR antispam_tag=$3)
@@ -86,6 +91,7 @@ export async function getLeadQueuePage(
 }
 
 export async function getLeadQueueCount(): Promise<number> {
+  // Badge means work to do: pending verification only, not the whole in-flight list (D28).
   const result = await query<{ count: number }>(
     `SELECT count(*)::int AS count FROM leads
       WHERE archived=false AND human_approval='PENDING' AND agent_approval <> 'REJECTED'`,

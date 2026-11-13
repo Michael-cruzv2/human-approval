@@ -1,14 +1,52 @@
-"use client";
-
-import Link from "next/link";
+import type { JSX, SyntheticEvent } from "react";
+import { useRef, useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState, type FormEvent } from "react";
-import LeadFullData from "./lead-full-data";
+import { z } from "zod";
+import { notFound } from "next/navigation";
+
+import { query } from "@/lib/server/db";
+import { writeAudit } from "@/lib/server/auth/audit";
+import { getApiSessionUser } from "@/lib/server/http/api-auth";
+import { isSameOriginRequest } from "@/lib/server/auth/http";
+import { withTransaction } from "@/lib/server/db";
+import { isValidReviewEmail } from "@/lib/server/review/email";
+
+import { CrossIcon, CheckIcon, ExternalIcon, SearchIcon } from "@/components/icons";
 import { Spinner } from "@/components/spinner";
 
-export type LeadActivity = { action: string; at: string; name: string | null };
+const STEPS = ["Checklist", "Customer details", "Draft review"] as const;
 
-export type LeadDetailData = {
+function text(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function safeUrl(value: unknown): string | undefined {
+  const text = text(value);
+  if (!text) return undefined;
+  try {
+    const url = new URL(text);
+    if (url.protocol === "http:" || url.protocol === "https:") return url.href;
+  } catch {}
+  return undefined;
+}
+
+function formatDate(iso: string): string {
+  return new Date(iso).toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+function validTimezone(value: unknown): boolean {
+  return Boolean(value) && typeof value === "string" && /^[A-Za-z_/]+-[A-Za-z_0-9]+/i.test(value);
+}
+
+type LeadDetailData = {
   id: string;
   domain: string;
   site_url: string | null;
@@ -28,13 +66,12 @@ export type LeadDetailData = {
   contact_form_url: string | null;
   socials: unknown;
   antispam_tag: string;
-  anti_spam_regime: string | null;
-  antispam_note: string | null;
-  is_shopify: boolean | null;
-  has_mobile_app: boolean | null;
-  app_signals: unknown;
+  anti_spam_regime: string;
+  antispam_note: string;
+  is_shopify: boolean;
+  has_mobile_app: boolean;
   evidence: unknown;
-  confidence: number | null;
+  confidence: unknown;
   agent_approval: string;
   agent_reason: string | null;
   human_approval: string;
@@ -45,223 +82,96 @@ export type LeadDetailData = {
   returned_from_drafts: boolean;
 };
 
-const fields = [
-  "company_name",
-  "contact_name",
-  "email",
-  "email_type",
-  "phone",
-  "country",
-  "language",
-  "timezone",
-  "niche",
-] as const;
-type Field = (typeof fields)[number];
+export type LeadDetailViewProps = {
+  lead: LeadDetailData;
+  activity: { action: string; at: string; name: string | null }[];
+  embedded?: boolean;
+  backHref?: string;
+};
 
-function getValues(lead: LeadDetailData): Record<Field, string> {
-  return {
+export default function LeadDetailView({ lead, activity, embedded = false, backHref = "/leads" }: LeadDetailViewProps): JSX.Element {
+  const router = useRouter();
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const [action, setAction] = useState<"approve" | "reject" | "revoke" | "reopen" | "archive" | null>(null);
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
+  const [fullData, setFullData] = useState(false);
+  const savedValues = {
     company_name: lead.company_name ?? "",
     contact_name: lead.contact_name ?? "",
     email: lead.email ?? "",
     email_type: lead.email_type ?? "",
     phone: lead.phone ?? "",
+    address: lead.address ?? "",
     country: lead.country ?? "",
     language: lead.language ?? "",
     timezone: lead.timezone ?? "",
     niche: lead.niche ?? "",
+    contact_page_url: lead.contact_page_url ?? "",
+    contact_form_url: lead.contact_form_url ?? "",
   };
-}
+  const [values, setValues] = useState(savedValues);
+  const emailIsValid = isValidReviewEmail(values.email);
 
-function validEmail(value: string | null): boolean {
-  return Boolean(
-    value &&
-      value === value.toLowerCase() &&
-      /^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/.test(value),
-  );
-}
-
-function validTimezone(value: string | null): boolean {
-  if (!value) return false;
-  try {
-    new Intl.DateTimeFormat("en", { timeZone: value });
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function text(value: unknown): string | null {
-  if (typeof value === "string" && value.trim()) return value;
-  if (typeof value === "number") return String(value);
-  return null;
-}
-
-function safeUrl(href: string | null): string | null {
-  if (!href) return null;
-  try {
-    const url = new URL(href);
-    return url.protocol === "https:" || url.protocol === "http:" ? url.href : null;
-  } catch {
-    return null;
-  }
-}
-
-const dateFormat = new Intl.DateTimeFormat("en-GB", {
-  day: "numeric",
-  month: "short",
-  year: "numeric",
-  timeZone: "UTC",
-});
-
-function formatDate(value: string | null): string {
-  if (!value) return "—";
-  const parsed = new Date(value);
-  return Number.isNaN(parsed.valueOf()) ? "—" : dateFormat.format(parsed);
-}
-
-function label(field: Field): string {
-  return field === "email_type" ? "Email type" : field.replaceAll("_", " ");
-}
-
-function CheckIcon() {
-  return (
-    <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
-      <path d="M3.5 8.5 6.5 11.5 12.5 4.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-function CrossIcon() {
-  return (
-    <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
-      <path d="M4.5 4.5l7 7m0-7-7 7" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function DotIcon() {
-  return (
-    <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
-      <circle cx="8" cy="8" r="4.5" stroke="currentColor" strokeWidth="1.4" strokeDasharray="1.6 2" />
-    </svg>
-  );
-}
-
-function ExternalIcon() {
-  return (
-    <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
-      <path d="M6.5 3.5h6v6M12.5 3.5 7 9M11 10.5v2h-8v-8h2" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-function SearchIcon() {
-  return (
-    <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
-      <circle cx="7" cy="7" r="4.2" stroke="currentColor" strokeWidth="1.3" />
-      <path d="m10.2 10.2 2.8 2.8" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-const STEPS = ["Found", "Agent checked", "Your approval", "Draft written", "Draft reviewed", "Sent"];
-
-export default function LeadDetailView({
-  lead,
-  activity,
-  embedded = false,
-  backHref = "/leads",
-}: {
-  lead: LeadDetailData;
-  activity: LeadActivity[];
-  embedded?: boolean;
-  backHref?: string;
-}) {
-  const router = useRouter();
-  const dialogRef = useRef<HTMLDialogElement>(null);
-  const [values, setValues] = useState<Record<Field, string>>(() => getValues(lead));
-  const [savedValues, setSavedValues] = useState<Record<Field, string>>(() => getValues(lead));
-  const [action, setAction] = useState<"approve" | "reject" | "revoke" | "reopen" | "archive" | null>(null);
-  const [note, setNote] = useState("");
-  const [message, setMessage] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [fullData, setFullData] = useState(false);
-
-  const dirty = fields.some((field) => values[field] !== savedValues[field]);
-  const emailIsValid = validEmail(values.email.trim().toLowerCase());
-  const changesEmail = values.email.trim().toLowerCase() !== (lead.email ?? "").toLowerCase();
+  const dirty = JSON.stringify(values) !== JSON.stringify(savedValues);
   const readOnly = lead.archived;
   const canDecide = !readOnly && lead.human_approval === "PENDING" && lead.agent_approval !== "REJECTED";
-  const approveBlocked = !emailIsValid || dirty;
+
+  const approveBlocked = !emailIsValid || dirty || busy;
+
+  const STEPS = ["Checklist", "Customer details", "Draft review"] as const;
+  const currentStep = lead.human_approval === "APPROVED" ? 3 : 2;
+
+  const checklist = [
+    { key: "email", state: emailIsValid ? "ok" : "missing", label: "Email present and valid", hint: emailIsValid ? undefined : "Add an email in the details", href: emailIsValid ? undefined : "#lead-email" },
+    { key: "country", state: lead.country ? "ok" : "missing", label: "Country known", hint: lead.country ? undefined : "Add a country in the details", href: lead.country ? undefined : "#lead-country" },
+    { key: "timezone", state: validTimezone(lead.timezone) ? "ok" : "missing", label: "Timezone valid", hint: validTimezone(lead.timezone) ? undefined : "Add a valid timezone", href: validTimezone(lead.timezone) ? undefined : "#lead-timezone" },
+    { key: "tag", state: "unknown", label: "Anti-spam tag allowed", hint: `${lead.antispam_tag.replaceAll("_", " ").toLowerCase()} · screening aid, not legal advice`, href: undefined },
+    { key: "agent", state: lead.agent_approval === "VERIFIED" ? "ok" : "missing", label: "Agent verdict verified", hint: lead.agent_approval === "VERIFIED" ? undefined : `Agent verdict is ${lead.agent_approval.replaceAll("_", " ").toLowerCase()}`, href: undefined },
+  ] as const;
 
   useEffect(() => {
-    function onKeyDown(event: KeyboardEvent) {
-      const target = event.target;
-      if (target instanceof HTMLElement && (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName))) return;
-      if (dialogRef.current?.open || fullData) {
-        if (event.key === "Escape" && fullData) setFullData(false);
-        return;
+    const down = (e: globalThis.KeyboardEvent) => {
+      if ((e.key === "a" && canDecide && !readOnly) || (e.key === "e" && !readOnly && !fullData) || (e.key === "r" && canDecide && !approveBlocked && !readOnly)) {
+        if (e.key === "a" && canDecide && !readOnly) { openAction("approve"); e.preventDefault(); }
+        if (e.key === "r" && canDecide && !approveBlocked && !readOnly) { openAction("reject"); e.preventDefault(); }
+        if (e.key === "e" && !readOnly && !fullData) { setFullData(true); }
       }
-      if (event.key === "e" && !readOnly) {
-        event.preventDefault();
-        document.getElementById("lead-company_name")?.focus();
-      }
-      if (event.key === "f") {
-        event.preventDefault();
-        setFullData((current) => !current);
-      }
-    }
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [fullData, readOnly]);
-
-  useEffect(() => {
-    if (!fullData) return;
-    const previous = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = previous;
     };
-  }, [fullData]);
+    document.addEventListener("keydown", down);
+    return () => document.removeEventListener("keydown", down);
+  }, [canDecide, readOnly, fullData, approveBlocked]);
 
-  async function save(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function save(e: SyntheticEvent) {
+    e.preventDefault();
+    if (!dirty || !canDecide) return;
     setBusy(true);
     setMessage("");
-    const body = Object.fromEntries(
-      fields.map((field) => {
-        const value = values[field].trim();
-        const normalized = field === "email" ? value.toLowerCase() : field === "country" ? value.toUpperCase() : value;
-        return [field, normalized === "" ? null : normalized];
-      }),
-    );
-    try {
-      const response = await fetch(`/api/leads/${lead.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      const result = (await response.json()) as { message?: string; approvalReset?: boolean };
-      if (!response.ok) {
-        setMessage(result.message ?? "Could not save lead changes.");
-        return;
-      }
-      const normalizedValues = Object.fromEntries(
-        fields.map((field) => [field, (body[field] as string | null) ?? ""]),
-      ) as Record<Field, string>;
-      setValues(normalizedValues);
-      setSavedValues(normalizedValues);
-      setMessage(result.approvalReset ? "Saved. Changing the email reset this lead to Pending." : "Lead details saved.");
-      router.refresh();
-    } catch {
-      setMessage("Could not save lead changes.");
-    } finally {
-      setBusy(false);
+
+    const form = new FormData();
+    for (const key of Object.keys(values)) {
+      const k = key as keyof typeof values;
+      if (values[k] !== savedValues[k]) form.append(k, values[k]);
     }
+
+    if (lead.human_approval === "APPROVED" && values.email !== lead.email) {
+      form.append("email_reset_approval", "true");
+    }
+
+    const response = await fetch(`/api/leads/${lead.id}/actions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "edit", values: Object.fromEntries(form), note: "" }),
+    });
+    const result = (await response.json()) as { message?: string };
+    if (!response.ok) {
+      setMessage(result.message ?? "Could not save changes.");
+      return;
+    }
+    setMessage("Changes saved.");
+    setValues(savedValues);
+    router.refresh();
   }
 
   async function confirmAction() {
@@ -315,28 +225,43 @@ export default function LeadDetailView({
   const contactHref = safeUrl(lead.contact_page_url);
   const formHref = safeUrl(lead.contact_form_url);
 
-  const currentStep = lead.human_approval === "APPROVED" ? 3 : 2;
-
-  const checklist = [
-    {
-      key: "email",
-      state: emailIsValid ? "ok" : "missing",
-      label: "Email present and valid",
-      hint: emailIsValid ? undefined : "Add an email in the details",
-      href: emailIsValid ? undefined : "#lead-email",
-    },
-    { key: "country", state: lead.country ? "ok" : "missing", label: "Country known", hint: lead.country ? undefined : "Add a country in the details", href: lead.country ? undefined : "#lead-country" },
-    { key: "timezone", state: validTimezone(lead.timezone) ? "ok" : "missing", label: "Timezone valid", hint: validTimezone(lead.timezone) ? undefined : "Add a valid timezone", href: validTimezone(lead.timezone) ? undefined : "#lead-timezone" },
-    { key: "tag", state: "unknown", label: "Anti-spam tag allowed", hint: `${lead.antispam_tag.replaceAll("_", " ").toLowerCase()} · screening aid, not legal advice`, href: undefined },
-    { key: "agent", state: lead.agent_approval === "VERIFIED" ? "ok" : "missing", label: "Agent verdict verified", hint: lead.agent_approval === "VERIFIED" ? undefined : `Agent verdict is ${lead.agent_approval.replaceAll("_", " ").toLowerCase()}`, href: undefined },
-  ] as const;
-
   return (
     <>
+      <dialog ref={dialogRef} className="confirm-dialog" onCancel={() => { setAction(null); setNote(""); }}>
+        <h2>
+          {action === "approve" && "Approve this lead?"}
+          {action === "reject" && "Reject this lead?"}
+          {action === "revoke" && "Revoke approval?"}
+          {action === "reopen" && "Reopen this lead?"}
+          {action === "archive" && "Archive this lead?"}
+        </h2>
+        <p>This covers the lead record for {lead.domain}. Approving a lead does not approve an email draft.</p>
+        <dl>
+          <div><dt>Company</dt><dd>{values.company_name || "—"}</dd></div>
+          <div><dt>Email</dt><dd>{values.email || "—"}</dd></div>
+          <div><dt>Country</dt><dd>{values.country || "—"}</dd></div>
+          <div><dt>Anti-spam</dt><dd>{lead.antispam_tag}</dd></div>
+          <div><dt>Note</dt><dd>{note || "—"}</dd></div>
+        </dl>
+        <div className="dialog-actions">
+          <button className="btn btn-ghost" type="button" disabled={busy} onClick={() => { setAction(null); setNote(""); }}>
+            Cancel
+          </button>
+          <button className={`btn ${action === "approve" || action === "reject" || action === "archive" ? "btn-leads" : action === "revoke" ? "btn-stop" : "btn-ghost"}${busy ? " busy" : ""}`} type="button" disabled={busy} onClick={confirmAction}>
+            {busy ? <><Spinner size="sm" />Processing…</> : (action === "approve" ? "Approve" : action === "reject" ? "Reject" : action === "revoke" ? "Revoke approval" : action === "reopen" ? "Reopen" : action === "archive" ? "Archive" : "OK")}
+          </button>
+        </div>
+        {message && <p className="field-error" role="alert">{message}</p>}
+      </dialog>
+
       <section className={`page-stack lead-detail-content${embedded ? " embedded-detail" : ""}`} aria-busy={false}>
         <header className="detail-head">
           <div>
-            {embedded && <Link className="mobile-back-link" href={backHref}>← Leads</Link>}
+            {embedded && (
+              <Link className="mobile-back-link" href={backHref}>
+                ← Leads
+              </Link>
+            )}
             <h1>{lead.company_name ?? lead.domain}</h1>
             <div className="detail-sub">
               {siteHref ? (
@@ -413,7 +338,7 @@ export default function LeadDetailView({
                       value={values.company_name}
                       maxLength={500}
                       disabled={readOnly}
-                      onChange={(event) => setValues((current) => ({ ...current, company_name: event.target.value }))}
+                      onChange={(e) => setValues((c) => ({ ...c, company_name: e.target.value }))}
                     />
                   </label>
                   <label className="field" htmlFor="lead-contact_name">
@@ -423,55 +348,52 @@ export default function LeadDetailView({
                       value={values.contact_name}
                       maxLength={500}
                       disabled={readOnly}
-                      onChange={(event) => setValues((current) => ({ ...current, contact_name: event.target.value }))}
+                      onChange={(e) => setValues((c) => ({ ...c, contact_name: e.target.value }))}
                     />
                   </label>
                 </div>
-                <label className="field" htmlFor="lead-email">
-                  Email
-                  <span className={`input-wrap${emailIsValid ? "" : " is-missing"}`}>
+                <div className="row">
+                  <label className="field" htmlFor="lead-email">
+                    Email
                     <input
                       id="lead-email"
                       type="email"
                       value={values.email}
-                      maxLength={320}
+                      maxLength={200}
                       disabled={readOnly}
-                      placeholder="Add an email address"
-                      aria-invalid={values.email.length > 0 && !emailIsValid}
-                      aria-describedby={!emailIsValid ? "lead-email-hint" : undefined}
-                      onChange={(event) => setValues((current) => ({ ...current, email: event.target.value }))}
+                      onChange={(e) => setValues((c) => ({ ...c, email: e.target.value }))}
                     />
-                    {!emailIsValid && <span className="required-pill">Required</span>}
-                  </span>
-                  <span id="lead-email-hint" className={`field-note${emailIsValid ? "" : " is-attention"}`}>
-                    {emailIsValid
-                      ? "Needed to approve. Changing it on an approved lead resets approval."
-                      : "Needed to approve. No address was found on the site, so check the contact page or add one by hand."}
-                  </span>
-                  {values.email.length > 0 && !emailIsValid && (
-                    <span className="field-error">Enter a valid lowercase address, like dana@harborandpine.com.</span>
-                  )}
-                </label>
-                <div className="row">
+                  </label>
                   <label className="field" htmlFor="lead-email_type">
-                    Email type
+                    Type
                     <input
                       id="lead-email_type"
                       value={values.email_type}
-                      maxLength={500}
+                      maxLength={100}
                       disabled={readOnly}
-                      placeholder="Choose type"
-                      onChange={(event) => setValues((current) => ({ ...current, email_type: event.target.value }))}
+                      onChange={(e) => setValues((c) => ({ ...c, email_type: e.target.value }))}
                     />
                   </label>
+                </div>
+                <div className="row">
                   <label className="field" htmlFor="lead-phone">
                     Phone
                     <input
                       id="lead-phone"
                       value={values.phone}
-                      maxLength={40}
+                      maxLength={100}
                       disabled={readOnly}
-                      onChange={(event) => setValues((current) => ({ ...current, phone: event.target.value }))}
+                      onChange={(e) => setValues((c) => ({ ...c, phone: e.target.value }))}
+                    />
+                  </label>
+                  <label className="field" htmlFor="lead-address">
+                    Address
+                    <input
+                      id="lead-address"
+                      value={values.address}
+                      maxLength={500}
+                      disabled={readOnly}
+                      onChange={(e) => setValues((c) => ({ ...c, address: e.target.value }))}
                     />
                   </label>
                 </div>
@@ -483,8 +405,7 @@ export default function LeadDetailView({
                       value={values.country}
                       maxLength={2}
                       disabled={readOnly}
-                      placeholder="US"
-                      onChange={(event) => setValues((current) => ({ ...current, country: event.target.value.toUpperCase() }))}
+                      onChange={(e) => setValues((c) => ({ ...c, country: e.target.value }))}
                     />
                   </label>
                   <label className="field" htmlFor="lead-language">
@@ -492,10 +413,9 @@ export default function LeadDetailView({
                     <input
                       id="lead-language"
                       value={values.language}
-                      maxLength={500}
+                      maxLength={50}
                       disabled={readOnly}
-                      placeholder="en"
-                      onChange={(event) => setValues((current) => ({ ...current, language: event.target.value }))}
+                      onChange={(e) => setValues((c) => ({ ...c, language: e.target.value }))}
                     />
                   </label>
                 </div>
@@ -505,10 +425,9 @@ export default function LeadDetailView({
                     <input
                       id="lead-timezone"
                       value={values.timezone}
-                      maxLength={500}
+                      maxLength={60}
                       disabled={readOnly}
-                      placeholder="America/Los_Angeles"
-                      onChange={(event) => setValues((current) => ({ ...current, timezone: event.target.value }))}
+                      onChange={(e) => setValues((c) => ({ ...c, timezone: e.target.value }))}
                     />
                   </label>
                   <label className="field" htmlFor="lead-niche">
@@ -516,179 +435,147 @@ export default function LeadDetailView({
                     <input
                       id="lead-niche"
                       value={values.niche}
-                      maxLength={500}
+                      maxLength={200}
                       disabled={readOnly}
-                      onChange={(event) => setValues((current) => ({ ...current, niche: event.target.value }))}
+                      onChange={(e) => setValues((c) => ({ ...c, niche: e.target.value }))}
                     />
                   </label>
                 </div>
-                {changesEmail && lead.human_approval === "APPROVED" && (
-                  <p className="notice">Saving an email change will reset approval to Pending.</p>
-                )}
+                <div className="row">
+                  <label className="field" htmlFor="lead-contact_page_url">
+                    Contact page URL
+                    <input
+                      id="lead-contact_page_url"
+                      value={values.contact_page_url}
+                      maxLength={500}
+                      disabled={readOnly}
+                      onChange={(e) => setValues((c) => ({ ...c, contact_page_url: e.target.value }))}
+                    />
+                  </label>
+                  <label className="field" htmlFor="lead-contact_form_url">
+                    Contact form URL
+                    <input
+                      id="lead-contact_form_url"
+                      value={values.contact_form_url}
+                      maxLength={500}
+                      disabled={readOnly}
+                      onChange={(e) => setValues((c) => ({ ...c, contact_form_url: e.target.value }))}
+                    />
+                  </label>
+                </div>
+                <div className="action-bar-group">
+                  {!emailIsValid && canDecide && (
+                    <span className="blocked-reason" id="approve-email-reason">Add an email to approve</span>
+                  )}
+                  {dirty && canDecide && <span className="blocked-reason">Save changes before deciding</span>}
+                  {readOnly && <span className="blocked-reason">Archived</span>}
+                  {!readOnly && (
+                    <button
+                      className={`btn btn-ghost${busy ? " busy" : ""}`}
+                      type="button"
+                      disabled={busy}
+                      onClick={() => openAction("archive")}
+                    >
+                      {busy ? <><Spinner size="sm" />Archiving…</> : "Archive"}
+                    </button>
+                  )}
+                  {lead.human_approval === "APPROVED" && !readOnly && (
+                    <button
+                      className={`btn btn-stop${busy ? " busy" : ""}`}
+                      type="button"
+                      disabled={busy}
+                      onClick={() => openAction("revoke")}
+                    >
+                      {busy ? <><Spinner size="sm" />Revoking…</> : "Revoke approval"}
+                    </button>
+                  )}
+                  {lead.human_approval === "REJECTED" && !readOnly && (
+                    <button
+                      className={`btn${busy ? " busy" : ""}`}
+                      type="button"
+                      disabled={busy}
+                      onClick={() => openAction("reopen")}
+                    >
+                      {busy ? <><Spinner size="sm" />Reopening…</> : "Reopen"}
+                    </button>
+                  )}
+                  {canDecide && (
+                    <>
+                      <button
+                        className={`btn btn-stop${busy ? " busy" : ""}`}
+                        type="button"
+                        disabled={busy || dirty}
+                        onClick={() => openAction("reject")}
+                      >
+                        {busy ? <><Spinner size="sm" />Rejecting…</> : <><CrossIcon /> Reject</>}
+                      </button>
+                      <button
+                        className={`btn ${approveBlocked ? "" : "btn-leads"}${busy ? " busy" : ""}`}
+                        type="button"
+                        disabled={busy || approveBlocked}
+                        aria-describedby={!emailIsValid ? "approve-email-reason" : undefined}
+                        onClick={() => openAction("approve")}
+                      >
+                        {busy ? <><Spinner size="sm" />Approving…</> : <><CheckIcon /> Approve</>}
+                      </button>
+                    </>
+                  )}
+                </div>
               </form>
             </section>
-          </div>
 
-          <div className="page-stack">
             <section className="panel">
-              <div className="section-head">
-                <h2>Ready for drafting</h2>
-              </div>
-              <ul className="checklist">
-                {checklist.map((item) => (
-                  <li key={item.key} id={item.key === "email" ? "lead-email-check" : undefined} data-state={item.state}>
-                    {item.state === "ok" ? <CheckIcon /> : item.state === "unknown" ? <DotIcon /> : <CrossIcon />}
-                    <span>
-                      {item.href ? (
-                        <a href={item.href}>{item.label}</a>
-                      ) : (
-                        item.label
-                      )}
-                      {item.hint && <span className="hint">{item.hint}</span>}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-              <p className="checklist-foot">Screening tags are review aids, not legal clearance.</p>
+              <h2>Checklist</h2>
+              {checklist.map((item) => (
+                <p key={item.key}>{item.label}{item.state === "ok" ? " – OK" : item.state === "missing" ? ` – Missing: ${item.hint}` : " –"}</p>
+              ))}
             </section>
 
             <section className="panel">
-              <div className="section-head">
-                <h2>Evidence</h2>
-              </div>
-              <div className="evidence-item">
-                <h3>{shopifySignal ? "Shopify store confirmed" : "Shopify not confirmed"}</h3>
-                <p className="evidence-quote">{shopifySignal ?? "No Shopify signals were recorded for this store."}</p>
-              </div>
-              <div className="evidence-item">
-                <h3>{noApp ? "No mobile app found" : "Mobile app check unavailable"}</h3>
-                <p className="evidence-quote">{noAppDetail ?? lead.agent_reason ?? "No app check was recorded."}</p>
-              </div>
+              <h2>Lead activity</h2>
+              {activity.length > 0 ? (
+                activity.map((a) => <p key={a.at}>{a.at} – {a.name} {a.action}</p>)
+              ) : (
+                <p>No recent activity.</p>
+              )}
             </section>
           </div>
-        </div>
 
-        <p className="form-message" role="status" aria-live="polite">{message}</p>
-
-        <div className="action-bar">
-          <div className="keyhints">
-            <span><kbd>j</kbd><kbd>k</kbd> move</span>
-            <span><kbd>e</kbd> edit</span>
-            <span><kbd>f</kbd> full data</span>
-          </div>
-          <div className="action-bar-group">
-            {!emailIsValid && canDecide && (
-              <span className="blocked-reason" id="approve-email-reason">Add an email to approve</span>
-            )}
-            {dirty && canDecide && <span className="blocked-reason">Save changes before deciding</span>}
-            {readOnly && <span className="blocked-reason">Archived</span>}
-            {!readOnly && (
-              <button
-                className={`btn btn-ghost${busy ? " busy" : ""}`}
-                type="button"
-                disabled={busy}
-                onClick={() => openAction("archive")}
-              >
-                {busy ? <><Spinner size="sm" />Archiving…</> : "Archive"}
+          {!fullData && (
+            <div className="detail-sidebar">
+              <button type="button" className="text-link" onClick={() => setFullData(true)}>
+                <SearchIcon /> View full data
               </button>
-            )}
-            {lead.human_approval === "APPROVED" && !readOnly && (
-              <button
-                className={`btn btn-stop${busy ? " busy" : ""}`}
-                type="button"
-                disabled={busy}
-                onClick={() => openAction("revoke")}
-              >
-                {busy ? <><Spinner size="sm" />Revoking…</> : "Revoke approval"}
+           찰">
+                <div>
+                  <h3>{lead.domain}</h3>
+                  <p>{lead.company_name}</p>
+                  <p>{lead.email}</p>
+                  <p>{lead.country}</p>
+                </div>
               </button>
-            )}
-            {lead.human_approval === "REJECTED" && !readOnly && (
-              <button
-                className={`btn${busy ? " busy" : ""}`}
-                type="button"
-                disabled={busy}
-                onClick={() => openAction("reopen")}
-              >
-                {busy ? <><Spinner size="sm" />Reopening…</> : "Reopen"}
-              </button>
-            )}
-            {canDecide && (
-              <>
-                <button
-                  className={`btn btn-stop${busy ? " busy" : ""}`}
-                  type="button"
-                  disabled={busy || dirty}
-                  onClick={() => openAction("reject")}
-                >
-                  {busy ? <><Spinner size="sm" />Rejecting…</> : <><CrossIcon /> Reject <kbd>r</kbd></>}
-                </button>
-                <button
-                  className={`btn ${approveBlocked ? "" : "btn-leads"}${busy ? " busy" : ""}`}
-                  type="button"
-                  disabled={busy || approveBlocked}
-                  aria-describedby={!emailIsValid ? "approve-email-reason" : undefined}
-                  onClick={() => openAction("approve")}
-                >
-                  {busy ? <><Spinner size="sm" />Approving…</> : <><CheckIcon /> Approve</>}
-                </button>
-              </>
-            )}
-          </div>
-        </div>
-
-        <dialog ref={dialogRef} className="confirm-dialog" onCancel={() => { setAction(null); setNote(""); }}>
-          <h2>
-            {action === "approve" && "Approve this lead?"}
-            {action === "reject" && "Reject this lead?"}
-            {action === "revoke" && "Revoke approval?"}
-            {action === "reopen" && "Reopen this lead?"}
-            {action === "archive" && "Archive this lead?"}
-          </h2>
-          <p>This covers the lead record for {lead.domain}. Approving a lead does not approve an email draft.</p>
-          <dl>
-            <div><dt>Company</dt><dd>{values.company_name || "—"}</dd></div>
-            <div><dt>Email</dt><dd>{values.email || "No email address"}</dd></div>
-            <div><dt>Country</dt><dd>{values.country || "—"}</dd></div>
-            <div><dt>Anti-spam tag</dt><dd>{lead.antispam_tag.replaceAll("_", " ").toLowerCase()} — screening aid only</dd></div>
-          </dl>
-          {(action === "reject" || action === "approve") && (
-            <label>
-              {action === "reject" ? "Rejection note · required" : "Note · optional"}
-              <textarea
-                value={note}
-                required={action === "reject"}
-                onChange={(event) => setNote(event.target.value)}
-              />
-            </label>
+              <aside className="notice">
+                <strong>Footer is added automatically when sent.</strong>
+                <p>Only subject and body from the draft appear below.</p>
+              </aside>
+            </div>
           )}
-          <div className="dialog-actions">
-            <button type="button" onClick={() => dialogRef.current?.close()}>Cancel</button>
-            <button
-              type="button"
-              className={action === "reject" || action === "archive" ? "btn-stop" : undefined}
-              disabled={busy || (action === "reject" && !note.trim())}
-              onClick={confirmAction}
-            >
-              {busy ? "Saving…" : action === "approve" ? "Approve lead" : action === "reject" ? "Reject lead" : action === "archive" ? "Archive lead" : "Confirm"}
-            </button>
-          </div>
-        </dialog>
+          {fullData && (
+            <div className="detail-sidebar full-data">
+              <button type="button" className="text-link" onClick={() => setFullData(false)}>
+                Back to summary
+              </button>
+              <h3>Full data</h3>
+              {Object.entries(lead).map(([key, val]) => (
+                <div key={key}>
+                  <h4>{key}</h4>
+                  <pre>{JSON.stringify(val, null, 2)}</pre>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </section>
-
-      {fullData && (
-        <LeadFullData
-          lead={lead}
-          activity={activity}
-          emailIsValid={emailIsValid}
-          siteHref={siteHref}
-          contactHref={contactHref}
-          formHref={formHref}
-          shopifySignal={shopifySignal}
-          hasNoApp={Boolean(noApp)}
-          onClose={() => setFullData(false)}
-        />
-      )}
-
     </>
   );
 }

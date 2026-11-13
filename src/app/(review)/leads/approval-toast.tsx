@@ -39,8 +39,8 @@ export default function ApprovalToast({
   return (
     <aside className="approval-toast" role="status" aria-live="polite">
       <div>
-        <strong>Approved, moved to Drafts.</strong>
-        <span>The lead no longer appears in Leads.</span>
+        <strong>Approved, draft requested.</strong>
+        <span>The lead stays in Leads and appears in Drafts; it leaves Leads once the email is sent.</span>
         {error && <span className="field-error" role="alert">{error}</span>}
       </div>
       <button type="button" disabled={busy} onClick={undo}>{busy ? "Undoing…" : "Undo"}</button>
