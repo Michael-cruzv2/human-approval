@@ -1,11 +1,15 @@
+import { after } from "next/server";
 import { z } from "zod";
 import { writeAudit } from "@/lib/server/auth/audit";
+import { generateDraftAfterApproval } from "@/lib/drafting/service";
 import { getApiSessionUser } from "@/lib/server/http/api-auth";
 import { isSameOriginRequest, jsonNoStore } from "@/lib/server/auth/http";
 import { withTransaction } from "@/lib/server/db";
 import { isValidReviewEmail } from "@/lib/server/review/email";
 
 export const runtime = "nodejs";
+// Drafting runs after the response; keep the invocation short and bounded (R30).
+export const maxDuration = 60;
 
 const ActionSchema = z.object({
   action: z.enum(["approve", "reject", "revoke", "reopen", "archive"]),
@@ -72,6 +76,11 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     if (outcome === "EMAIL_REQUIRED") return jsonNoStore({ message: "Add a valid email address before approving this lead." }, 422);
     if (outcome === "SEND_STARTED") return jsonNoStore({ message: "This lead cannot be revoked because sending has started." }, 409);
     if (outcome === "CONFLICT") return jsonNoStore({ message: "This lead changed state. Refresh and review it again." }, 409);
+    if (outcome.status === "APPROVED") {
+      // The approval is committed. Drafting starts after this response and can
+      // never delay or fail it (R30).
+      after(() => generateDraftAfterApproval(id));
+    }
     return jsonNoStore({ ok: true, status: outcome.status });
   } catch {
     return jsonNoStore({ message: "Could not update this lead." }, 503);
