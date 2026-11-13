@@ -66,7 +66,7 @@ Deploy the Next.js app to Vercel. Configure all required environment variables i
 
 ## Ownership and safety
 
-- LeadSearch, Drafter, and LeadMailer remain separate programs; Postgres is the only integration surface.
+- LeadSearch and LeadMailer remain separate programs; the Review App also generates drafts for approved leads (see `docs/DECISIONS.md` D27). Postgres is the only integration surface.
 - The app only writes Review App-owned fields and audit rows as defined in `docs/DATA_CONTRACT.md`.
 - Lead and draft approval requires explicit confirmation. Draft approval uses the exact `content_hash` reviewed.
 - `email_sends`, `email_attempts`, and `suppressions` are never written by this app.

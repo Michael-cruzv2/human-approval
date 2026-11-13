@@ -38,6 +38,16 @@ Mark each task `[x]` when done. Keep tasks small. If blocked, log an Open questi
 - [ ] T19 Rules review: walk `docs/RULES.md` R1 to R29 and note evidence for each in `docs/DECISIONS.md` under "Rules review".
 - [x] T20 README for the app repo: setup, env vars, how to apply SQL, how to seed the first admin, how to deploy to Vercel.
 
+## Phase 6: drafting inside the app (DECISIONS D27)
+- [x] T25 Update the contract docs and rules for in-app drafting (D27, R30–R34).
+- [ ] T26 `config/email_template.json` plus a Zod template loader; invalid template blocks drafting and writes nothing.
+- [ ] T27 `lib/drafting`: facts-only model input, guarded generation, fallback + `generation_note`, `DRAFT_GENERATE` audit, one live draft per lead.
+- [ ] T28 Generate in the background after lead approval commits, never blocking or failing the approval.
+- [ ] T29 Drafts > Awaiting draft: failure reasons, Generate per lead, Generate all (≤5), Regenerate with the rejection note as feedback.
+- [ ] T30 `db/004_drafting_settings.sql` (`drafting_enabled` false) and the grants list for the owner.
+- [ ] T31 `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL` in `.env.example`, the startup check and the README.
+- [ ] T32 Offline drafting tests with a fake model.
+
 T18 and T19 remain open until the database-backed and manual scenarios in `docs/TESTING.md` pass. The current repository test suite covers static contracts and import parsing/template behavior only.
 
 ## Out of order work is not allowed

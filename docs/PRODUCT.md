@@ -19,8 +19,8 @@ Up to 3 people: 1 admin (the owner) and operators. Login by emailed code. See `d
 
 ## Out of scope (do not build)
 - Sending email, scheduling, retries, bounce handling (LeadMailer).
-- Finding or verifying leads (LeadSearch). Writing drafts with AI (Drafter).
-- Templates editor, CRM features, reporting beyond the All overview.
+- Finding or verifying leads (LeadSearch). A template editor: `config/email_template.json` is edited by the owner, not in the UI.
+- CRM features, reporting beyond the All overview.
 - Public pages, sign-up, passwords, social login.
 - Notifications other than the login OTP email.
 

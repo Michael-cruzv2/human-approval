@@ -14,16 +14,16 @@ Nothing is ever sent without a human approving here. This app **never sends emai
 7. `docs/TASKS.md`: build order. `docs/TESTING.md`: what must pass. `docs/DECISIONS.md`: decided and open items.
 8. `db/schema.sql`, `db/002_review_app.sql`, `config/app.yaml`, `.env.example`.
 
-## The four neighbouring programs (do not touch their code or columns)
+## The three neighbouring programs (do not touch their code or columns)
 - **LeadSearch** (Python): finds/verifies stores, inserts into `leads`.
-- **Drafter**: writes rows into `drafts` for approved leads.
 - **LeadMailer** (TypeScript, Trigger.dev): sends approved drafts, owns `email_sends`, `email_attempts`, `suppressions`.
 - The shared Postgres database (Neon) is the **only** interface. No program imports or calls another.
+- Email drafting lives **inside this app**: it inserts `drafts` for approved leads with a valid email (see `docs/DECISIONS.md` D27 and rules R30–R34). There is no separate Drafter program.
 
 ## Default stack (change only by logging a decision in `docs/DECISIONS.md`)
 - TypeScript, Next.js (App Router), deployed to Vercel. Neon Postgres via a standard driver. Zod for validation.
 - Email OTP delivery: Mailgun. Excel parsing: `exceljs`.
-- **Read the current official documentation** for Next.js, Neon, the email provider and exceljs before using them.
+- **Read the current official documentation** for Next.js, Neon, the email provider, the drafting model endpoint and exceljs before using them.
   Do not rely on memory for APIs, versions or limits. If docs and these files disagree, log an Open question.
 
 ## Working agreements

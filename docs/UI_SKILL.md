@@ -31,11 +31,12 @@ Never mix the jobs. A lead approval never approves a draft. Leads screens show n
 
 ## Drafts tab
 - Only leads that are `APPROVED`, have a valid email and have a pending draft. Own queue, counts and header treatment so it feels like a different job.
-- Sub-views: To review, Awaiting draft (read-only), Approved (revoke while allowed).
+- Sub-views: To review, Awaiting draft, Approved (revoke while allowed).
+- Awaiting draft shows why no draft exists yet (drafting switched off, template invalid, model/guard failure note, last rejection note) and offers "Generate draft" per lead and "Generate all" for at most 5 leads. After a draft rejection it offers "Regenerate", which sends the rejection note back to the model as feedback and creates version + 1. Lead facts stay read-only here.
 - Draft screen: recipient email read-only; subject and body editable as plain text (content only, never the email or customer fields); `ai_opener` read-only; note "Footer is added automatically when sent."; small read-only lead strip with an Open lead link.
 - Approve: confirmation with final subject, full body, recipient, anti-spam tag, and submit the displayed `content_hash` (compare-and-set). Disabled while edits are unsaved. No bulk approve.
 - Two rejection options, both need a note:
-  - **Reject draft**: draft `REJECTED`, lead stays `APPROVED`, the Drafter writes a new version.
+  - **Reject draft**: draft `REJECTED`, lead stays `APPROVED`; the reviewer can then Regenerate, which passes the note to the model and creates version + 1.
   - **Reject and send lead back to verification**: one transaction sets the draft `REJECTED` and the lead back to `PENDING` (approver fields cleared) with the note on both. The lead reappears in Leads with a "Returned from drafts" tag.
 - If the lead changes while a draft is open, show "The lead changed. Review again" and disable Approve until refreshed.
 - Revoking or returning is blocked, with the reason shown, once an `email_sends` row for the lead is `SENDING` or `SENT`.

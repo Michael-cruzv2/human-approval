@@ -32,8 +32,8 @@ Numbered so they can be cited in reviews and tests. "MUST" and "MUST NOT" are ab
 - **R21** Every cell is sanitised against formula injection on import and on any export (prefix `'` to values starting with `=`, `+`, `-`, `@`, tab or CR).
 
 ## Privacy and logging
-- **R22** Do not log lead emails, phone numbers, draft bodies, OTPs or tokens. Log IDs and action names only.
-- **R23** Do not send lead data to any third-party service. The only external calls are: the database, the OTP email provider.
+- **R22** Do not log lead emails, phone numbers, draft bodies, rejection notes, OTPs or tokens. Log IDs and action names only.
+- **R23** Do not send lead data to any third-party service beyond what R31 allows. The only external calls are: the database, the OTP email provider, and the drafting model endpoint.
 - **R24** Secrets come from environment variables only. `.env` is git-ignored. The app fails closed at startup if a required variable is missing.
 
 ## Process
@@ -42,3 +42,10 @@ Numbered so they can be cited in reviews and tests. "MUST" and "MUST NOT" are ab
 - **R27** Compliance screening (`antispam_tag`) is a screening aid, not legal advice. The UI shows it but MUST NOT present it as a legal clearance.
 - **R28** A lead MUST have a valid-looking, lowercase email to enter `human_approval = 'APPROVED'`. Enforce this in the UI, server action, and database.
 - **R29** Returning an approved lead from draft review rejects that draft and returns the lead to `PENDING` in one transaction. Both state changes and their audit records are atomic; block the action if sending has started.
+
+## Drafting
+- **R30** The approval transaction MUST NOT wait for or depend on any model call. Drafting starts only after the approval has committed, through the platform's after-response mechanism; a model failure never fails or delays the approval response.
+- **R31** The model MUST NOT receive the contact's email, phone numbers, or any `ls_*` data. Its input is limited to stored lead facts: company name, contact name, niche, country, language and scrubbed evidence snippets.
+- **R32** A generated draft is ALWAYS inserted as `PENDING`, never auto-approved, and only for a lead whose exact `human_approval` is `APPROVED` and whose email is valid.
+- **R33** The Review App MAY insert `drafts` rows (from `config/email_template.json` and the model). The one-live-draft-per-lead index applies; inserts use `ON CONFLICT DO NOTHING`, and the `DRAFT_GENERATE` audit row is written in the same transaction.
+- **R34** The compliance footer is added by LeadMailer, never included in a generated `subject` or `body_text`.

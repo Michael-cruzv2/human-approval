@@ -33,7 +33,9 @@ Run `npm test` for repository-level route-guard, ownership, audit-transaction, o
 - Draft cannot be approved when its lead is not `APPROVED`.
 - Revoke is blocked when an `email_sends` row for the lead is `SENDING` or `SENT`; allowed when `QUEUED`/`RETRY_WAIT`/none.
 - Draft rejection has separate reject-only and reject-and-return actions; both require a note.
-- Rejected draft cannot be re-approved (final); a new version row from the Drafter appears in the queue.
+- Rejected draft cannot be re-approved (final); Regenerate creates version + 1 and passes the trimmed rejection note to the fake model.
+- Drafting is skipped when `settings.drafting_enabled` is false or the lead has no valid email; the approval succeeds even when the model fails.
+- The model payload contains no email address or phone number; the one-live-draft index holds across concurrent generations; an invalid template writes nothing.
 - Draft text containing HTML or `<script>` is displayed as text.
 
 ### Import
