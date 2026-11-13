@@ -140,7 +140,7 @@ export default function LeadDetailView({ lead, activity, embedded = false, backH
 
   const approveBlocked = !emailIsValid || dirty || busy;
 
-  const STEPS = ["Checklist", "Customer details", "Draft review"] as const;
+  const STEPS = ["Found", "Agent checked", "Your approval", "Draft written", "Draft reviewed", "Sent"] as const;
   const currentStep = lead.human_approval === "APPROVED" ? 3 : 2;
 
   const checklist = [
