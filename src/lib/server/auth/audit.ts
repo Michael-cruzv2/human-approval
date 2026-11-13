@@ -4,6 +4,7 @@ export type AuditAction =
   | "APPROVE"
   | "REJECT"
   | "DRAFT_REJECT"
+  | "DRAFT_GENERATE"
   | "LEAD_RETURNED"
   | "REVOKE"
   | "REOPEN"

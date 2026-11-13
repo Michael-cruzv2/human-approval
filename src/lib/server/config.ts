@@ -20,6 +20,9 @@ const EnvironmentSchema = z
     MAILGUN_DOMAIN: z.string().min(1),
     MAILGUN_REGION: z.enum(["US", "EU"]),
     EMAIL_FROM: z.email(),
+    LLM_BASE_URL: z.url(),
+    LLM_API_KEY: z.string().min(1),
+    LLM_MODEL: z.string().min(1),
     APP_ORIGIN: z.url().refine((value) => {
       const parsed = new URL(value);
       return parsed.origin === value;
