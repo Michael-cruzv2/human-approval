@@ -45,7 +45,7 @@ Mark each task `[x]` when done. Keep tasks small. If blocked, log an Open questi
 - [x] T28 Generate in the background after lead approval commits, never blocking or failing the approval.
 - [x] T29 Drafts > Awaiting draft: failure reasons, Generate per lead, Generate all (≤5), Regenerate with the rejection note as feedback.
 - [x] T30 `db/004_drafting_settings.sql` (`drafting_enabled` false) and the grants list for the owner.
-- [ ] T31 `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL` in `.env.example`, the startup check and the README.
+- [x] T31 `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL` in `.env.example`, the startup check and the README.
 - [ ] T32 Offline drafting tests with a fake model.
 
 T18 and T19 remain open until the database-backed and manual scenarios in `docs/TESTING.md` pass. The current repository test suite covers static contracts and import parsing/template behavior only.

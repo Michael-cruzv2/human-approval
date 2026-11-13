@@ -22,6 +22,9 @@ Fill `.env` locally. Do not paste secrets into source files or commit `.env`.
 - Set `SESSION_SECRET` and `OTP_PEPPER` to different random values of at least 32 characters.
 - Set `MAILGUN_API_KEY`, `MAILGUN_DOMAIN`, `MAILGUN_REGION` (`US` or `EU`), and `EMAIL_FROM` to the matching Mailgun configuration.
 - Set `APP_ORIGIN` to the app origin used in the browser, such as `http://localhost:3000`.
+- Set `LLM_BASE_URL` (API root, e.g. `https://api.example.com/v1`), `LLM_API_KEY`, and `LLM_MODEL` for the drafting endpoint. The app calls `POST {LLM_BASE_URL}/chat/completions` and requires all three at startup.
+
+Drafting is off by default. Apply `db/004_drafting_settings.sql`, replace the example copy in `config/email_template.json`, and then set `settings.drafting_enabled` to `true` when ready. While it is off no draft is generated; approved leads wait in Drafts › Awaiting draft.
 
 Start the local app:
 
@@ -39,7 +42,8 @@ The owner applies SQL manually to a **throwaway child/test branch**, in this ord
 2. `db/002_review_app.sql`
 3. Before applying `db/003_approval_requires_email.sql`, reconcile approved lead rows with invalid or missing email.
 4. `db/003_approval_requires_email.sql`
-5. Copy `db/seed.example.sql` to a private SQL file, replace the example email/name, and insert the first admin once.
+5. `db/004_drafting_settings.sql` (adds `drafting_enabled`, default `false`). Grant the app role `INSERT` on `drafts` and `SELECT` on `settings` (see the commented grant block in that file).
+6. Copy `db/seed.example.sql` to a private SQL file, replace the example email/name, and insert the first admin once.
 
 Never run these setup scripts against the main/production branch as part of local testing. Keep the seed file with the real admin details out of version control. The app uses the child URL for local work and does not migrate databases automatically.
 
