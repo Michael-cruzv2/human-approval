@@ -45,7 +45,8 @@ export function createChatClient(
             model: settings.model,
             messages,
             temperature: 0.4,
-            max_completion_tokens: 500,
+            max_completion_tokens: 2048,
+            reasoning_effort: "medium",
           }),
           signal: AbortSignal.timeout(timeoutMs),
         });
