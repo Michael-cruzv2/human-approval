@@ -20,7 +20,31 @@ type LeadListItem = {
   updated_at: string;
   returned_from_drafts: boolean;
 };
-type Filters = { status: "PENDING" | "REJECTED"; agent: string; tag: string; country: string; search: string; email: "ALL" | "MISSING"; returned: boolean };
+type Filters = { status: "PENDING" | "REJECTED" | "ALL"; agent: string; tag: string; country: string; search: string; email: "ALL" | "MISSING"; returned: boolean };
+type QueueState = "PENDING" | "MISSING" | "RETURNED" | "REJECTED" | "ALL";
+
+const emptyCopy: Record<QueueState, { title: string; description: string }> = {
+  PENDING: {
+    title: "Nothing to review",
+    description: "All pending leads have been actioned. Check back later, or open Rejected to reopen a lead.",
+  },
+  MISSING: {
+    title: "Every pending lead has an email",
+    description: "No pending lead is missing a valid email address. Leads in this state cannot be approved.",
+  },
+  RETURNED: {
+    title: "No returned leads",
+    description: "No draft has been sent back for verification. Leads returned from Drafts appear here.",
+  },
+  REJECTED: {
+    title: "No rejected leads",
+    description: "Nothing has been rejected yet. Rejected leads can be reopened from here.",
+  },
+  ALL: {
+    title: "No leads in this view",
+    description: "No pending or rejected lead matches these filters. Adjust the filters or check back later.",
+  },
+};
 
 function hasValidEmail(email: string | null): boolean {
   return Boolean(email && email === email.toLowerCase() && /^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/.test(email));
@@ -36,12 +60,14 @@ export default function LeadQueueTable({
   total,
   hasMore: initiallyHasMore,
   filters,
+  state,
   selectedLeadId,
 }: {
   leads: LeadListItem[];
   total: number;
   hasMore: boolean;
   filters: Filters;
+  state: QueueState;
   selectedLeadId: string;
 }) {
   const [leads, setLeads] = useState(initialLeads);
@@ -307,18 +333,17 @@ export default function LeadQueueTable({
           );
         })}
         {loading && showSkeleton && (
-          <>
-            <Skeleton width={170} height={14} className="skeleton-title" />
-            <Skeleton width={110} height={11} className="skeleton-subtitle" />
-            <Skeleton width={26} height={11} className="skeleton-meta" />
-            <Skeleton width={70} height={20} radius="999px" className="skeleton-chip" />
-          </>
+          <div className="queue-skeleton-row" aria-hidden="true">
+            <span className="lead-row-head">
+              <Skeleton width={168} height={13} />
+              <Skeleton width={22} height={11} />
+            </span>
+            <Skeleton width={104} height={11} className="queue-skeleton-sub" />
+            <Skeleton width={78} height={20} radius="999px" />
+          </div>
         )}
         {!loading && leads.length === 0 && (
-          <EmptyState
-            title="Nothing to review"
-            description="All pending leads have been actioned. Check back later or try the Rejected filter to reopen a lead."
-          />
+          <EmptyState title={emptyCopy[state].title} description={emptyCopy[state].description} />
         )}
       </div>
       <div className="queue-foot">

@@ -174,12 +174,14 @@ export default function DraftQueue({
               );
             })}
             {loading && showSkeleton && (
-              <>
-                <Skeleton width={170} height={14} className="skeleton-title" />
-                <Skeleton width={110} height={11} className="skeleton-subtitle" />
-                <Skeleton width={26} height={11} className="skeleton-meta" />
-                <Skeleton width={70} height={20} radius="999px" className="skeleton-chip" />
-              </>
+              <div className="queue-skeleton-row" aria-hidden="true">
+                <span className="lead-row-head">
+                  <Skeleton width={168} height={13} />
+                  <Skeleton width={22} height={11} />
+                </span>
+                <Skeleton width={104} height={11} className="queue-skeleton-sub" />
+                <Skeleton width={78} height={20} radius="999px" />
+              </div>
             )}
             {!loading && drafts.length === 0 && (
               <EmptyState

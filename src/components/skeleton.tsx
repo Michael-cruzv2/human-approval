@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 
 type SkeletonProps = {
   className?: string;
@@ -9,7 +9,8 @@ type SkeletonProps = {
   radius?: string;
   /**
    * When true, the skeleton is shown immediately (used for load-more placeholder rows).
-   * When false, the skeleton only appears after 200ms and stays at least 400ms.
+   * When false, the placeholder only appears after 200ms, so fast responses never flash.
+   * The 400ms minimum is expressed by the `.sk` fade-in in globals.css.
    */
   immediate?: boolean;
 };
@@ -21,39 +22,15 @@ export function Skeleton({
   radius = "6px",
   immediate = false,
 }: SkeletonProps) {
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const minTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [show, setShow] = useState(false);
-  const [minTimeReached, setMinTimeReached] = useState(false);
-
-  const shouldShow = immediate || (show && minTimeReached);
+  const [visible, setVisible] = useState(immediate);
 
   useEffect(() => {
-    if (!show && !immediate) {
-      timerRef.current = setTimeout(() => setShow(true), 200);
-    }
-    return () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
-    };
-  }, [show, immediate]);
+    if (immediate) return;
+    const timer = setTimeout(() => setVisible(true), 200);
+    return () => clearTimeout(timer);
+  }, [immediate]);
 
-  useEffect(() => {
-    if (show) {
-      minTimerRef.current = setTimeout(() => setMinTimeReached(true), 400);
-    }
-    return () => {
-      if (minTimerRef.current) clearTimeout(minTimerRef.current);
-    };
-  }, [show]);
-
-  useEffect(() => {
-    return () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
-      if (minTimerRef.current) clearTimeout(minTimerRef.current);
-    };
-  }, []);
-
-  if (!shouldShow) return null;
+  if (!visible) return null;
 
   return (
     <i

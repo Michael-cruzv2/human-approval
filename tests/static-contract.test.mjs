@@ -122,7 +122,9 @@ test("lead queue excludes approved leads and exposes a 25-row keyset cursor", as
   const page = await readFile(path.join(root, "src/app/(review)/leads/page.tsx"), "utf8");
   const action = await readFile(path.join(root, "src/app/api/leads/[id]/actions/route.ts"), "utf8");
   assert.match(queue, /human_approval=\$1/);
-  assert.match(page, /params\.status === "REJECTED" \? "REJECTED" : "PENDING"/);
+  assert.match(queue, /human_approval IN \('PENDING','REJECTED'\)/);
+  assert.match(page, /z\.enum\(\["PENDING", "REJECTED", "ALL"\]\)/);
+  assert.match(page, /state === "ALL" \? "page" : undefined/);
   assert.match(action, /UPDATE leads SET human_approval='APPROVED'/);
   assert.match(queue, /updated_at < \$6 OR \(updated_at=\$6 AND id > \$7::uuid\)/);
   assert.match(queue, /\(\$4='' OR country=\$4\)/);

@@ -2950,7 +2950,7 @@ pre {
   display: block;
   background: linear-gradient(90deg, #e4e8ed 20%, #f2f5f8 45%, #e4e8ed 70%);
   background-size: 300% 100%;
-  animation: sw 1.6s ease-in-out infinite;
+  animation: sw 1.6s ease-in-out infinite, sk-in 400ms ease both;
   flex: none;
 }
 
@@ -2961,6 +2961,91 @@ pre {
   100% {
     background-position: 0 0;
   }
+}
+
+/* Placeholders appear 200ms after loading starts and ramp in over 400ms, so a
+   fast response never flashes and a slow one never snaps into place. */
+@keyframes sk-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.queue-skeleton-row {
+  display: grid;
+  gap: 0.375rem;
+  padding: 0.75rem 1.25rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.queue-skeleton-row .lead-row-head {
+  gap: 0.5rem;
+}
+
+.queue-skeleton-sub {
+  justify-self: start;
+}
+
+.queue-skeleton-meta {
+  display: flex;
+  justify-self: start;
+}
+
+.queue-skeleton-foot {
+  min-height: 2.5rem;
+}
+
+.count-skeleton {
+  display: inline-block;
+  width: 4.75rem;
+  height: 1.1rem;
+  border-radius: 999px;
+  background: var(--surface-2);
+  vertical-align: middle;
+}
+
+.filter-chips .count-skeleton {
+  width: 1.15rem;
+  height: 0.7rem;
+  opacity: 0.65;
+}
+
+.detail-skeleton {
+  display: grid;
+  gap: 0.75rem;
+  align-content: start;
+  padding: 0.25rem 0;
+}
+
+.detail-skeleton-panel {
+  display: grid;
+  gap: 0.625rem;
+  margin-top: 1rem;
+  padding: 1.25rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.table-skeleton {
+  display: grid;
+}
+
+.table-skeleton-row {
+  display: grid;
+  grid-template-columns: minmax(0, 2.2fr) repeat(7, minmax(0, 1fr));
+  gap: 1rem;
+  align-items: center;
+  padding: 0.75rem 1.25rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.table-skeleton-lead {
+  display: grid;
+  gap: 0.375rem;
 }
 
 @media (prefers-reduced-motion: reduce) {

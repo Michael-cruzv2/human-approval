@@ -6,7 +6,7 @@ import { getLeadQueuePage } from "@/lib/server/review/lead-queue";
 export const runtime = "nodejs";
 const QuerySchema = z
   .object({
-    status: z.enum(["PENDING", "REJECTED"]).default("PENDING"),
+    status: z.enum(["PENDING", "REJECTED", "ALL"]).default("PENDING"),
     agent: z.enum(["VERIFIED", "NEEDS_REVIEW", "ALL"]).default("ALL"),
     tag: z
       .enum([

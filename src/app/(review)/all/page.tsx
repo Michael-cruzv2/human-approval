@@ -1,9 +1,34 @@
+import { Suspense, cache } from "react";
 import { z } from "zod";
 import { getAllQueuePage, type AllQueueFilters } from "@/lib/server/review/all-queue";
+import { CountSkeleton, TableSkeleton } from "@/components/queue-skeleton";
 import AllQueue from "./all-queue";
 import FilterForm from "./filter-form";
 
 export const dynamic = "force-dynamic";
+
+/** One query per request shared by the total count and the table. */
+const loadAllQueue = cache((key: string) => getAllQueuePage(JSON.parse(key) as AllQueueFilters));
+
+async function AllQueueBadge({ queueKey }: { queueKey: string }) {
+  const rows = (await loadAllQueue(queueKey)).rows.slice(0, 25);
+  return <span className="muted">{rows[0]?.total_count ?? 0} leads</span>;
+}
+
+async function AllQueueResults({ queueKey, filters }: { queueKey: string; filters: AllQueueFilters }) {
+  const result = await loadAllQueue(queueKey);
+  const rows = result.rows.slice(0, 25);
+  return (
+    <section className="panel table-panel">
+      <AllQueue
+        leads={rows}
+        filters={filters}
+        total={rows[0]?.total_count ?? 0}
+        hasMore={result.rows.length > 25}
+      />
+    </section>
+  );
+}
 const Status = z.enum(["ALL", "PENDING", "APPROVED", "REJECTED", "ARCHIVED"]);
 const Agent = z.enum(["ALL", "VERIFIED", "NEEDS_REVIEW", "REJECTED"]);
 const Tag = z.enum(["ALL", "OPT_OUT_REGIME", "CONDITIONAL", "CONSENT_REQUIRED", "VARIES_REVIEW", "UNKNOWN_REVIEW"]);
@@ -60,9 +85,7 @@ export default async function AllPage({ searchParams }: { searchParams: Promise<
     draft: Draft.safeParse(params.draft).success ? Draft.parse(params.draft) : "ALL",
     search: typeof params.search === "string" ? params.search.trim().slice(0, 100) : "",
   };
-  const result = await getAllQueuePage(filters);
-  const rows = result.rows.slice(0, 25);
-  const total = rows[0]?.total_count ?? 0;
+  const queueKey = JSON.stringify(filters);
   const emailMissing = filters.email === "NO";
 
   return (
@@ -134,12 +157,14 @@ export default async function AllPage({ searchParams }: { searchParams: Promise<
           Email missing
         </label>
         <span className="spacer" />
-        <span className="muted">{total} leads</span>
+        <Suspense key={queueKey} fallback={<CountSkeleton />}>
+          <AllQueueBadge queueKey={queueKey} />
+        </Suspense>
       </FilterForm>
 
-      <section className="panel table-panel">
-        <AllQueue leads={rows} filters={filters} total={total} hasMore={result.rows.length > 25} />
-      </section>
+      <Suspense key={queueKey} fallback={<section className="panel table-panel"><TableSkeleton label="Loading leads" /></section>}>
+        <AllQueueResults queueKey={queueKey} filters={filters} />
+      </Suspense>
     </section>
   );
 }

@@ -17,6 +17,7 @@ Never mix the jobs. A lead approval never approves a draft. Leads screens show n
 
 ## Leads tab
 - Queue: `human_approval = PENDING`, not archived, agent verdict not `REJECTED`. Approved leads do not appear. A Rejected filter allows reopening.
+- Queue state chips are single-select: **Pending** (default), **Needs email**, **Returned**, **Rejected**, **All**. All shows pending and rejected leads in one list, still excluding approved and archived leads. The other filters (agent, country, anti-spam tag, search) stay in "More filters" and apply across chips.
 - Master-detail layout (list left, detail right; separate screens on mobile).
 - Summary view: company, contact, email and type, phone, country, language, timezone, niche, agent reason, Shopify and no-app evidence snippets with source links.
 - Checklist "Ready for drafting": email present and valid, country known, timezone valid, anti-spam tag allowed, agent verdict `VERIFIED`. Failed items are clickable and jump to the field.
@@ -56,7 +57,7 @@ Never mix the jobs. A lead approval never approves a draft. Leads screens show n
 
 ### Loading, slow, error and empty states
 - Placeholders mirror the loaded layout: real labels, tabs, search, filters and buttons render immediately; only values are placeholders, sized like the real content so nothing jumps.
-- Timing: show placeholders only if loading takes over 200 ms, then keep them at least 400 ms. At 8 s show "Taking longer than usual. Still trying." with Try again; at 20 s show the error state with a request ID.
+- Timing: show placeholders only if loading takes over 200 ms, then ramp them in over 400 ms so a fast response never flashes and a slower one never snaps into place. At 8 s show "Taking longer than usual. Still trying." with Try again; at 20 s show the error state with a request ID.
 - Motion: one light sweep, 1.6 s; under `prefers-reduced-motion` no sweep, flat grey. Spinners only inside buttons and small chips, never over a page.
 - Colour: placeholders neutral grey in both jobs; only the active tab line, primary button and spinners use teal (Leads) or plum (Drafts).
 - Never optimistic for approve, reject, revoke, return or save: dialog stays open, buttons lock, labels read "Approving…" or "Saving…", and the UI changes only after the server confirms.

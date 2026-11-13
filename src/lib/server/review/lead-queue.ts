@@ -1,7 +1,9 @@
 import { query } from "@/lib/server/db";
 
+export type LeadQueueStatus = "PENDING" | "REJECTED" | "ALL";
+
 export type LeadQueueFilters = {
-  status: "PENDING" | "REJECTED";
+  status: LeadQueueStatus;
   agent: string;
   tag: string;
   country: string;
@@ -47,7 +49,7 @@ export async function getLeadQueuePage(
             count(*) OVER()::int AS total_count
        FROM leads
       WHERE archived=false
-        AND human_approval=$1
+        AND (($1='ALL' AND human_approval IN ('PENDING','REJECTED')) OR ($1<>'ALL' AND human_approval=$1))
         AND agent_approval <> 'REJECTED'
         AND ($2='ALL' OR agent_approval=$2)
         AND ($3='ALL' OR antispam_tag=$3)

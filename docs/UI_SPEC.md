@@ -20,6 +20,7 @@ On phones the top bar keeps only **Leads · Drafts · All**; Import, History and
 
 ## Leads tab
 - Leads review customer information only. Default queue is pending; a Rejected filter supports reopening. Approved leads leave this tab. The pending queue excludes archived and agent-rejected leads.
+- Queue chips are single-select: Pending (default), Needs email, Returned, Rejected, All. All shows pending plus rejected leads in one list; no chip ever shows approved or archived leads.
 - Edit the allowed fact fields in `docs/DATA_CONTRACT.md`, with explicit Save/Cancel and inline validation. A valid lowercase email is required to approve; without one show "Email required", disable Approve with reason "Add an email to approve", and provide a jump to the email field. The server and database enforce the same rule.
 - Approval confirmation summarizes the key lead facts. Success says "Approved, moved to Drafts" and offers Undo (revoke) until navigation, subject to R8.
 - Do not show draft content or send status anywhere in Leads.
