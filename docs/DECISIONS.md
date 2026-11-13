@@ -60,6 +60,11 @@ Agents: add Open questions here, never guess. The owner answers; move answered i
 - R27: lead and draft screens label screening tags as aids, not legal clearance.
 - R28: lead detail disables approval without a valid lowercase email; `/api/leads/[id]/actions` checks the same rule; the additive constraint is `db/003_approval_requires_email.sql` and startup verifies it.
 - R29: `/api/drafts/[id]/actions` performs both send-back updates and both audit inserts inside one transaction, after checking `email_sends` for `SENDING`/`SENT`.
+- R30: `/api/leads/[id]/actions` schedules generation with `after()` after the approval transaction; `generateDraftAfterApproval` never throws. `tests/drafting.test.mjs` asserts the ordering and that a thrown model error still resolves.
+- R31: `src/lib/drafting/facts.ts` selects only the five fact columns plus scrubbed evidence; the payload test asserts no email, phone or domain reaches the model.
+- R32: the repository re-checks `human_approval = 'APPROVED'`, `archived = false` and a valid lowercase email before insert; generated rows never set `human_approval`.
+- R33: `insertGeneratedDraft` writes the draft and its `DRAFT_GENERATE` audit row in one `withTransaction`, with `ON CONFLICT DO NOTHING` for the one-live-draft index; static checks assert both.
+- R34: drafting never writes a footer; `body_text` ends at the template's last section and the footer remains LeadMailer's.
 
 T19 remains open until the database-backed and manual scenarios in `docs/TESTING.md` pass.
 

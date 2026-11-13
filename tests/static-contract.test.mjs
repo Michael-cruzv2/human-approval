@@ -75,6 +75,7 @@ test("review mutations include server origin checks", async () => {
     "src/app/api/leads/bulk-reject/route.ts",
     "src/app/api/drafts/[id]/route.ts",
     "src/app/api/drafts/[id]/actions/route.ts",
+    "src/app/api/drafts/generate/route.ts",
     "src/app/api/import/preview/route.ts",
     "src/app/api/import/commit/route.ts",
   ];
@@ -82,6 +83,16 @@ test("review mutations include server origin checks", async () => {
     const source = await readFile(path.join(root, route), "utf8");
     assert.match(source, /isSameOriginRequest/, `${route} must reject cross-origin mutation`);
   }
+});
+
+test("draft generation inserts only drafts with an audit row in one transaction", async () => {
+  const repository = await readFile(path.join(root, "src/lib/drafting/repository.ts"), "utf8");
+  assert.match(repository, /withTransaction/);
+  assert.match(repository, /INSERT INTO drafts/);
+  assert.match(repository, /ON CONFLICT DO NOTHING/);
+  assert.match(repository, /writeAudit\(client, "DRAFT_GENERATE"/);
+  assert.match(repository, /human_approval = 'APPROVED'/);
+  assert.doesNotMatch(repository, /INSERT INTO (?:email_sends|email_attempts|suppressions|ls_)/);
 });
 
 test("import commit requires the previewed file and stores fixed review states", async () => {
