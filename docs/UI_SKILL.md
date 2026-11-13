@@ -9,15 +9,16 @@ Use for any UI work on the Review App. Apply a frontend-design skill or guidance
 - Speed and clarity beat decoration: a reviewer should clear 25 items in minutes.
 
 ## Three tabs, one job each
-1. **Leads**: human verification of customer information. A lead leaves this tab once approved.
+1. **Leads**: human verification of customer information, then a read-only waiting room for approved leads. A lead leaves this tab once its email is sent.
 2. **Drafts**: review of email text only. Shows only leads that were approved in Leads.
 3. **All**: read-only overview of every lead in every state.
 
 Never mix the jobs. A lead approval never approves a draft. Leads screens show no draft content or send status. Drafts screens never edit customer fields.
 
 ## Leads tab
-- Queue: `human_approval = PENDING`, not archived, agent verdict not `REJECTED`. Approved leads do not appear. A Rejected filter allows reopening.
-- Queue state chips are single-select: **Pending** (default), **Needs email**, **Returned**, **Rejected**, **All**. All shows pending and rejected leads in one list, still excluding approved and archived leads. The other filters (agent, country, anti-spam tag, search) stay in "More filters" and apply across chips.
+- Queue: not archived, not yet sent, agent verdict not `REJECTED`. Shows `PENDING`, `APPROVED` and `REJECTED` leads. A lead is sent when `leads.contacted` is true or its `email_sends` row is `SENT`; sent leads are dropped from this tab and stay visible in All. A Rejected filter allows reopening.
+- Queue state chips are single-select: **Pending** (default), **Needs email**, **Returned**, **Approved**, **Rejected**, **All**. All shows pending, approved and rejected leads in one list, still excluding sent and archived leads. The other filters (agent, country, anti-spam tag, search) stay in "More filters" and apply across chips.
+- Rows carry a status badge: Pending, Approved or Rejected. An approved lead is read-only in this tab apart from revoke, archive and fact edits; Approve and Reject are only offered while it is Pending.
 - Master-detail layout (list left, detail right; separate screens on mobile).
 - Summary view: company, contact, email and type, phone, country, language, timezone, niche, agent reason, Shopify and no-app evidence snippets with source links.
 - Checklist "Ready for drafting": email present and valid, country known, timezone valid, anti-spam tag allowed, agent verdict `VERIFIED`. Failed items are clickable and jump to the field.
@@ -26,7 +27,7 @@ Never mix the jobs. A lead approval never approves a draft. Leads screens show n
 - Warn before saving an email change on an approved lead: it resets approval to Pending.
 - **Email is required to approve.** A lead without a valid email stays here with an "Email required" tag, Approve is disabled with the reason, and the server rejects the approval too (plus a database check, see `docs/DECISIONS.md`).
 - Approve and Reject open a confirmation dialog (domain, company, email, country, anti-spam tag). Reject needs a note. Escape never confirms. No bulk approve; bulk reject is allowed.
-- After approval show "Approved, moved to Drafts" with undo (revoke) until the next navigation, subject to the send-started rule.
+- After approval show "Approved, draft requested" with undo (revoke) until the next navigation, subject to the send-started rule. The lead stays listed here as Approved until its email is sent.
 - Full data view (read-only toggle or drawer): Identity, Contact, Location, Compliance, Evidence, Review, Lifecycle, plus the lead's audit timeline. JSON rendered as readable key/value lists with a raw JSON disclosure and copy buttons.
 
 ## Drafts tab

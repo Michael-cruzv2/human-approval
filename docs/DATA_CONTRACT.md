@@ -72,11 +72,11 @@ The send-back action sets the draft's `human_approval = 'REJECTED'`, `human_appr
 Draft review and approval additionally require the parent lead to have exact `APPROVED` status and a valid-looking lowercase email. Draft rejection does not change the lead unless the explicit send-back action is selected.
 
 ## Queues the UI reads
-- **Leads**: pending leads where `human_approval = 'PENDING' AND agent_approval <> 'REJECTED' AND archived = false`; a separate Rejected filter may show rejected leads for reopening. Approved leads never appear. Page size 25, keyset Load more.
+- **Leads**: in-flight leads only: not archived, and not yet sent. A lead counts as sent when `leads.contacted = true` or its `email_sends` row has `status = 'SENT'`; sent leads never appear here and remain visible in All. Shows `PENDING`, `APPROVED` and `REJECTED`; a lead that is `APPROVED` is read-only apart from revoke, archive and fact edits. Page size 25, keyset Load more.
 - **Drafts · To review**: pending drafts whose non-archived lead is `APPROVED` and has a valid-looking lowercase email.
 - **Drafts · Awaiting draft**: approved, non-archived leads with a valid-looking lowercase email and no non-rejected draft. Shows any `generation_note`, the last rejected draft's note, and Generate/Regenerate actions (at most 5 at once). Lead facts stay read-only there.
 - **Drafts · Approved**: approved drafts whose lead is still approved and has a valid email; revoke is subject to R8.
-- **All**: read-only overview of all leads and statuses. Keyset pagination ordered by `(updated_at DESC, id ASC)`, page size 25; filters and search are applied before pagination.
+- **All**: read-only overview of every lead ever recorded, in every state (archived and sent included), with no send or archive exclusion. Keyset pagination ordered by `(updated_at DESC, id ASC)`, page size 25; filters and search are applied before pagination.
 - **History**: approved/rejected rows with who and when, filterable by user.
 - Leads and Drafts queues also use page size 25 and explicit Load more controls.
 

@@ -22,7 +22,9 @@ Run `npm test` for repository-level route-guard, ownership, audit-transaction, o
 - Approval stores the session user and a timestamp, never a client-supplied user.
 - Editing `email` on an approved lead resets it to `PENDING` (trigger) and the response says so.
 - Approve is disabled with the stated reason for a missing/invalid email, and the server rejects an approval even when called directly; the database rejects a direct approved update without a valid lowercase email.
-- After approval, the lead disappears from Leads. A pending draft appears in Drafts only if its lead is approved and has a valid email.
+- After approval, the lead stays in Leads with an Approved badge, and a pending draft appears in Drafts only if its lead is approved and has a valid email. It leaves Leads when it is sent (`contacted = true` or `email_sends.status = 'SENT'`) and is still listed in All.
+- An approved lead in Leads is read-only apart from revoke, archive and fact edits; Approve and Reject are only offered while it is Pending.
+- All lists every lead ever recorded, including sent and archived leads, with no send or archive exclusion.
 - Returning a draft to Leads changes the draft and lead in one transaction or changes neither; both notes and both audit entries are written. A return is blocked if sending has started.
 - Lead, Drafts and All Load more cursors neither repeat nor skip rows across pages and preserve active filters.
 - Bulk reject works; there is no bulk approve endpoint.

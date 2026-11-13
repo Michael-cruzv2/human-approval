@@ -48,6 +48,12 @@ Mark each task `[x]` when done. Keep tasks small. If blocked, log an Open questi
 - [x] T31 `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL` in `.env.example`, the startup check and the README.
 - [x] T32 Offline drafting tests with a fake model.
 
+## Phase 7: in-flight Leads, complete All (DECISIONS D28)
+- [x] T33 Record D28 and update the queue contracts for Leads (in flight until sent) and All (complete archive).
+- [ ] T34 Leads queue and API: include `APPROVED`, exclude leads whose `contacted` is true or whose `email_sends` row is `SENT`.
+- [ ] T35 Leads UI: Approved chip, per-row status badge, empty states, approval toast copy.
+- [ ] T36 Tests for the sent exclusion and the unchanged complete All queue.
+
 T18 and T19 remain open until the database-backed and manual scenarios in `docs/TESTING.md` pass. The current repository test suite covers static contracts and import parsing/template behavior only.
 
 ## Out of order work is not allowed
