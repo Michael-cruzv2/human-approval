@@ -174,6 +174,21 @@ export function loadEmailTemplate(
   }
 }
 
+export type TemplateStatus = { ok: true } | { ok: false; message: string };
+
+/** Used by the Drafts screen to explain why no draft can be generated. */
+export function checkEmailTemplate(): TemplateStatus {
+  try {
+    loadEmailTemplate();
+    return { ok: true };
+  } catch (error) {
+    return {
+      ok: false,
+      message: error instanceof Error ? error.message : `${DEFAULT_TEMPLATE_PATH} is invalid.`,
+    };
+  }
+}
+
 /** Fills {fact} and {fact|default}. Missing facts use the default or empty text. */
 export function fillPlaceholders(text: string, facts: LeadFacts): string {
   return text

@@ -309,7 +309,7 @@ export default function DraftReview({ draft, embedded = false, returnHref = "/dr
                   onChange={(event) => setSubject(event.target.value)}
                 />
               </label>
-              {draft.ai_opener && (
+              {draft.ai_opener && !body.includes(draft.ai_opener) && (
                 <div className="opener-block">
                   <p className="eyebrow">Opening line written by AI. Read only.</p>
                   <p>{draft.ai_opener}</p>
@@ -367,7 +367,7 @@ export default function DraftReview({ draft, embedded = false, returnHref = "/dr
           {approval === "REJECTED" && (
             <section className="panel">
               <div className="section-head"><h2>Rejected</h2></div>
-              <p className="muted">Rejected drafts are final. The Drafter creates any new version.</p>
+              <p className="muted">Rejected drafts are final. Regenerate a new version from Drafts › Awaiting draft.</p>
               {draft.human_note && <p className="section-foot">{draft.human_note}</p>}
             </section>
           )}
@@ -437,7 +437,7 @@ export default function DraftReview({ draft, embedded = false, returnHref = "/dr
         )}
         {action === "reject" && (
           <>
-            <p>The draft is rejected and the lead stays approved. The Drafter writes a new version.</p>
+            <p>The draft is rejected and the lead stays approved. Regenerate a new version from Awaiting draft, with this note passed to the model.</p>
             <label>
               What needs fixing? · Required
               <textarea value={note} required onChange={(event) => setNote(event.target.value)} />

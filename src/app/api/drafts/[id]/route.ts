@@ -73,7 +73,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     });
     if (result === "NOT_FOUND") return jsonNoStore({ message: "Draft not found." }, 404);
     if (result === "LEAD_CHANGED") return jsonNoStore({ message: "The lead changed. Review again." }, 409);
-    if (result === "FINAL") return jsonNoStore({ message: "Rejected drafts are final. Ask the Drafter to create a new version." }, 409);
+    if (result === "FINAL") return jsonNoStore({ message: "Rejected drafts are final. Regenerate a new version from Awaiting draft." }, 409);
     return jsonNoStore({ ok: true, ...result });
   } catch {
     return jsonNoStore({ message: "Could not save draft changes." }, 503);

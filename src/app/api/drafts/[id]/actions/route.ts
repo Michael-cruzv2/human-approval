@@ -113,7 +113,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     if (outcome === "STALE") return jsonNoStore({ message: "draft changed, please review again" }, 409);
     if (outcome === "LEAD_NOT_APPROVED") return jsonNoStore({ message: "The lead must be approved before reviewing this draft." }, 409);
     if (outcome === "EMAIL_REQUIRED") return jsonNoStore({ message: "A valid email is required to review this draft." }, 409);
-    if (outcome === "FINAL") return jsonNoStore({ message: "Rejected drafts are final. A new version must come from the Drafter." }, 409);
+    if (outcome === "FINAL") return jsonNoStore({ message: "Rejected drafts are final. Regenerate a new version from Awaiting draft." }, 409);
     if (outcome === "SEND_STARTED") return jsonNoStore({
       message: parsed.data.action === "return"
         ? "This lead cannot be returned because sending has started."

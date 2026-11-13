@@ -14,6 +14,10 @@ export type DraftQueueRow = {
   human_approval: string;
   updated_at: string;
   editor_name: string | null;
+  last_draft_version: number | null;
+  last_draft_status: string | null;
+  last_draft_note: string | null;
+  last_generation_note: string | null;
   total_count: number;
 };
 
@@ -30,8 +34,18 @@ export async function getDraftQueuePage(
       `SELECT l.id, l.id AS lead_id, NULL::uuid AS draft_id, l.domain, l.company_name, l.country, l.email,
               NULL::integer AS version, 'AWAITING_DRAFT' AS human_approval,
               to_char(l.updated_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS updated_at,
-              NULL::text AS editor_name, count(*) OVER()::int AS total_count
+              NULL::text AS editor_name,
+              last.version AS last_draft_version,
+              last.human_approval AS last_draft_status,
+              last.human_note AS last_draft_note,
+              last.generation_note AS last_generation_note,
+              count(*) OVER()::int AS total_count
          FROM leads l
+         LEFT JOIN LATERAL (
+           SELECT d.version, d.human_approval, d.human_note, d.generation_note
+             FROM drafts d WHERE d.lead_id = l.id
+            ORDER BY d.version DESC LIMIT 1
+         ) last ON true
         WHERE l.human_approval='APPROVED' AND l.archived=false AND ${VALID_EMAIL}
           AND NOT EXISTS (SELECT 1 FROM drafts d WHERE d.lead_id=l.id AND d.human_approval <> 'REJECTED')
           AND ($1='' OR l.domain ILIKE '%' || $1 || '%' OR l.company_name ILIKE '%' || $1 || '%')
@@ -45,7 +59,12 @@ export async function getDraftQueuePage(
     `SELECT d.id, d.lead_id, d.id AS draft_id, l.domain, l.company_name, l.country, l.email, d.version,
             d.human_approval,
             to_char(d.updated_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS updated_at,
-            u.name AS editor_name, count(*) OVER()::int AS total_count
+            u.name AS editor_name,
+            NULL::integer AS last_draft_version,
+            NULL::text AS last_draft_status,
+            NULL::text AS last_draft_note,
+            NULL::text AS last_generation_note,
+            count(*) OVER()::int AS total_count
        FROM drafts d JOIN leads l ON l.id=d.lead_id
        LEFT JOIN users u ON u.id=d.last_edited_by
       WHERE d.human_approval=$1 AND l.human_approval='APPROVED' AND l.archived=false AND ${VALID_EMAIL}

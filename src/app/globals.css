@@ -1023,6 +1023,19 @@ details > summary {
   font-size: 0.6875rem;
 }
 
+.draft-row-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 0.25rem;
+}
+
+.generate-action {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
 .queue-foot,
 .pagination {
   display: flex;

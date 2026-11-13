@@ -6,6 +6,7 @@ import { Skeleton } from "@/components/skeleton";
 import { EmptyState } from "@/components/empty-state";
 import { ErrorState } from "@/components/error-state";
 import { LoadingBanner } from "@/components/loading-banner";
+import GenerateDraftButton from "./generate-draft-button";
 
 type DraftQueueItem = {
   id: string;
@@ -19,6 +20,10 @@ type DraftQueueItem = {
   human_approval: string;
   updated_at: string;
   editor_name: string | null;
+  last_draft_version: number | null;
+  last_draft_status: string | null;
+  last_draft_note: string | null;
+  last_generation_note: string | null;
 };
 
 const dayFormat = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", timeZone: "UTC" });
@@ -39,6 +44,8 @@ export default function DraftQueue({
   total,
   hasMore: initiallyHasMore,
   selectedItemId,
+  draftingEnabled,
+  templateError,
 }: {
   drafts: DraftQueueItem[];
   view: "to-review" | "awaiting-draft" | "approved";
@@ -46,7 +53,13 @@ export default function DraftQueue({
   total: number;
   hasMore: boolean;
   selectedItemId: string;
+  draftingEnabled: boolean;
+  templateError: string | null;
 }) {
+  const draftingBlocked = !draftingEnabled || Boolean(templateError);
+  const draftingBlockedReason = !draftingEnabled
+    ? "Drafting is switched off in settings."
+    : templateError;
   const [drafts, setDrafts] = useState(initialDrafts);
   const [hasMore, setHasMore] = useState(initiallyHasMore);
   const [loading, setLoading] = useState(false);
@@ -142,6 +155,11 @@ export default function DraftQueue({
       )}
       {!errorState && (
         <>
+          {view === "awaiting-draft" && draftingBlocked && (
+            <p className="blocked-reason" role="status">
+              {draftingBlockedReason}
+            </p>
+          )}
           <div className="draft-queue-list" role="list" aria-label="Draft queue" aria-busy={loading || slow}>
             {drafts.map((draft) => {
               const itemId = draft.draft_id ?? draft.lead_id;
@@ -155,7 +173,9 @@ export default function DraftQueue({
                     : { className: "badge badge-pending", label: "Pending" };
               const subtitle =
                 view === "awaiting-draft"
-                  ? `Approved ${writtenLabel(draft.updated_at)}`
+                  ? draft.last_draft_status === "REJECTED"
+                    ? `Draft ${draft.last_draft_version ?? ""} rejected ${writtenLabel(draft.updated_at)}`
+                    : `Approved ${writtenLabel(draft.updated_at)}`
                   : `Draft ${draft.version ?? 1}, written ${writtenLabel(draft.updated_at)}`;
               return (
                 <article className={`draft-queue-item${selectedItemId === itemId ? " is-selected" : ""}`} key={draft.id} role="listitem">
@@ -170,6 +190,16 @@ export default function DraftQueue({
                       <span className={status.className}>{status.label}</span>
                     </span>
                   </Link>
+                  {view === "awaiting-draft" && (
+                    <div className="draft-row-actions">
+                      <GenerateDraftButton
+                        leadIds={[draft.lead_id]}
+                        label={draft.last_draft_status === "REJECTED" ? "Regenerate" : "Generate"}
+                        busyLabel="Generating…"
+                        disabled={draftingBlocked}
+                      />
+                    </div>
+                  )}
                 </article>
               );
             })}
@@ -185,8 +215,12 @@ export default function DraftQueue({
             )}
             {!loading && drafts.length === 0 && (
               <EmptyState
-                title="Nothing to review"
-                description="All pending drafts have been actioned. Approve a lead in the Leads tab to generate a draft."
+                title={view === "awaiting-draft" ? "No leads are waiting" : "Nothing to review"}
+                description={
+                  view === "awaiting-draft"
+                    ? "Every approved lead with a valid email has a live draft. Approve another lead in the Leads tab to add one here."
+                    : "All pending drafts have been actioned. Approve a lead in the Leads tab to generate a draft."
+                }
               />
             )}
           </div>

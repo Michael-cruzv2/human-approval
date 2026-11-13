@@ -2,6 +2,8 @@ import "server-only";
 
 import { getAppConfig } from "@/lib/server/config";
 import { generateDraft, type DraftActor, type GenerateDraftResult } from "./generate";
+
+export type { GenerateDraftResult } from "./generate";
 import { createChatClient } from "./llm";
 import {
   insertGeneratedDraft,

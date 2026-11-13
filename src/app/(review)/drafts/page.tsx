@@ -3,8 +3,11 @@ import { query } from "@/lib/server/db";
 import Link from "next/link";
 import { z } from "zod";
 import { getDraftQueueCounts, getDraftQueuePage, type DraftQueueView } from "@/lib/server/review/draft-queue";
+import { isDraftingEnabled } from "@/lib/drafting/repository";
+import { checkEmailTemplate } from "@/lib/drafting/template";
 import { CountSkeleton, DetailSkeleton, QueueFootSkeleton, QueueRowsSkeleton } from "@/components/queue-skeleton";
 import DraftQueue from "./draft-queue";
+import GenerateDraftButton from "./generate-draft-button";
 import { DraftDetailContent } from "./[id]/page";
 
 export const dynamic = "force-dynamic";
@@ -29,6 +32,10 @@ type AwaitingDraftLead = {
   human_approval: string;
   updated_at: string;
   editor_name: null;
+  last_draft_version: number | null;
+  last_draft_status: string | null;
+  last_draft_note: string | null;
+  last_generation_note: string | null;
   total_count: number;
 };
 
@@ -46,8 +53,18 @@ async function getAwaitingDraftLead(id: string, search: string): Promise<Awaitin
     `SELECT l.id, l.id AS lead_id, NULL::uuid AS draft_id, l.domain, l.company_name, l.country, l.email,
             NULL::integer AS version, 'AWAITING_DRAFT' AS human_approval,
             to_char(l.updated_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS updated_at,
-            NULL::text AS editor_name, 1::int AS total_count
+            NULL::text AS editor_name,
+            last.version AS last_draft_version,
+            last.human_approval AS last_draft_status,
+            last.human_note AS last_draft_note,
+            last.generation_note AS last_generation_note,
+            1::int AS total_count
        FROM leads l
+       LEFT JOIN LATERAL (
+         SELECT d.version, d.human_approval, d.human_note, d.generation_note
+           FROM drafts d WHERE d.lead_id = l.id
+          ORDER BY d.version DESC LIMIT 1
+       ) last ON true
       WHERE l.id=$1 AND l.human_approval='APPROVED' AND l.archived=false
         AND l.email IS NOT NULL AND l.email=lower(l.email)
         AND l.email ~ '^[a-z0-9._%+-]+@[a-z0-9.-]+\\.[a-z]{2,}$'
@@ -73,11 +90,15 @@ async function DraftQueueResults({
   view,
   search,
   selectedItemId,
+  draftingEnabled,
+  templateError,
 }: {
   queueKey: string;
   view: DraftQueueView;
   search: string;
   selectedItemId: string;
+  draftingEnabled: boolean;
+  templateError: string | null;
 }) {
   const result = await loadDraftQueue(queueKey);
   const rows = result.rows.slice(0, 25);
@@ -90,6 +111,8 @@ async function DraftQueueResults({
       total={rows[0]?.total_count ?? 0}
       hasMore={result.rows.length > 25}
       selectedItemId={selectedItemId || selected?.draft_id || selected?.lead_id || ""}
+      draftingEnabled={draftingEnabled}
+      templateError={templateError}
     />
   );
 }
@@ -100,12 +123,16 @@ async function DraftDetailPane({
   search,
   requestedItem,
   returnHref,
+  draftingEnabled,
+  templateError,
 }: {
   queueKey: string;
   view: DraftQueueView;
   search: string;
   requestedItem: string;
   returnHref: string;
+  draftingEnabled: boolean;
+  templateError: string | null;
 }) {
   const rows = (await loadDraftQueue(queueKey)).rows.slice(0, 25);
   const matched = rows.find((row) => (row.draft_id ?? row.lead_id) === requestedItem);
@@ -116,6 +143,9 @@ async function DraftDetailPane({
   if (view === "awaiting-draft") {
     const lead = resolved ?? (selectedItemId ? await getAwaitingDraftLead(selectedItemId, search) : undefined);
     if (!lead) return <p className="empty-state">Select an item to review.</p>;
+    const rejected = lead.last_draft_status === "REJECTED";
+    const awaitingIds = rows.map((row) => row.lead_id).slice(0, 5);
+    const draftingBlocked = !draftingEnabled || Boolean(templateError);
     return (
       <div className="page-stack awaiting-detail">
         <header className="detail-head">
@@ -123,17 +153,60 @@ async function DraftDetailPane({
             <Link className="mobile-back-link" href={returnHref}>← Emails</Link>
             <h1>{lead.company_name ?? lead.domain}</h1>
             <div className="detail-chips">
-              <span className="badge badge-awaiting">Awaiting draft</span>
+              <span className="badge badge-awaiting">{rejected ? "Draft rejected" : "Awaiting draft"}</span>
             </div>
           </div>
         </header>
         <section className="panel">
-          <p>The lead is approved and has a valid recipient email. A draft has not arrived yet.</p>
+          {!draftingEnabled && (
+            <aside className="notice" role="status">
+              <strong>Drafting is switched off</strong>
+              <p>Set settings.drafting_enabled to true (db/004_drafting_settings.sql) before generating drafts.</p>
+            </aside>
+          )}
+          {templateError && (
+            <aside className="notice" role="alert">
+              <strong>Drafting is blocked by the template</strong>
+              <p>{templateError}</p>
+            </aside>
+          )}
+          {rejected ? (
+            <>
+              <p>Draft {lead.last_draft_version ?? ""} was rejected. The lead stays approved; regenerate to create a new version.</p>
+              {lead.last_draft_note && (
+                <p className="section-foot"><strong>Rejection note:</strong> {lead.last_draft_note}</p>
+              )}
+            </>
+          ) : (
+            <p>The lead is approved and has a valid recipient email. No draft has been generated yet.</p>
+          )}
+          {lead.last_generation_note && (
+            <p className="section-foot"><strong>Generation note:</strong> {lead.last_generation_note}</p>
+          )}
           <dl className="facts-grid">
             <div className="fact"><dt>Domain</dt><dd>{lead.domain}</dd></div>
             <div className="fact"><dt>Recipient</dt><dd>{lead.email}</dd></div>
           </dl>
-          <Link className="btn" href={`/all/${lead.lead_id}`}>Open lead details</Link>
+          <div className="action-row">
+            <GenerateDraftButton
+              leadIds={[lead.lead_id]}
+              label={rejected ? "Regenerate" : "Generate draft"}
+              busyLabel="Generating…"
+              className="btn btn-drafts"
+              disabled={draftingBlocked}
+              disabledReason={!draftingEnabled ? "Drafting is switched off in settings." : templateError}
+            />
+            {awaitingIds.length > 1 && (
+              <GenerateDraftButton
+                leadIds={awaitingIds}
+                label={`Generate all (${awaitingIds.length})`}
+                busyLabel="Generating…"
+                disabled={draftingBlocked}
+              />
+            )}
+            <Link className="btn btn-ghost" href={`/all/${lead.lead_id}`}>Open lead details</Link>
+          </div>
+          <p className="section-foot">Lead details are read only here. At most 5 drafts are generated at once.</p>
         </section>
       </div>
     );
@@ -153,6 +226,11 @@ export default async function DraftsPage({ searchParams }: { searchParams: Promi
     : typeof params.draft === "string" ? params.draft : "";
   const validRequestedItem = z.uuid().safeParse(requestedItem).success ? requestedItem : "";
   const returnHref = `/drafts?${new URLSearchParams({ view, search })}`;
+  const [draftingEnabled, templateStatus] = await Promise.all([
+    isDraftingEnabled(),
+    Promise.resolve(checkEmailTemplate()),
+  ]);
+  const templateError = templateStatus.ok ? null : templateStatus.message;
 
   return (
     <div className="drafts-workspace" data-has-selection={Boolean(validRequestedItem)}>
@@ -211,6 +289,8 @@ export default async function DraftsPage({ searchParams }: { searchParams: Promi
             view={view}
             search={search}
             selectedItemId={validRequestedItem}
+            draftingEnabled={draftingEnabled}
+            templateError={templateError}
           />
         </Suspense>
       </section>
@@ -222,6 +302,8 @@ export default async function DraftsPage({ searchParams }: { searchParams: Promi
             search={search}
             requestedItem={validRequestedItem}
             returnHref={returnHref}
+            draftingEnabled={draftingEnabled}
+            templateError={templateError}
           />
         </Suspense>
       </section>
