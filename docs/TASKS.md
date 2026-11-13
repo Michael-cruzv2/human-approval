@@ -40,7 +40,7 @@ Mark each task `[x]` when done. Keep tasks small. If blocked, log an Open questi
 
 ## Phase 6: drafting inside the app (DECISIONS D27)
 - [x] T25 Update the contract docs and rules for in-app drafting (D27, R30–R34).
-- [ ] T26 `config/email_template.json` plus a Zod template loader; invalid template blocks drafting and writes nothing.
+- [x] T26 `config/email_template.json` plus a Zod template loader; invalid template blocks drafting and writes nothing.
 - [ ] T27 `lib/drafting`: facts-only model input, guarded generation, fallback + `generation_note`, `DRAFT_GENERATE` audit, one live draft per lead.
 - [ ] T28 Generate in the background after lead approval commits, never blocking or failing the approval.
 - [ ] T29 Drafts > Awaiting draft: failure reasons, Generate per lead, Generate all (≤5), Regenerate with the rejection note as feedback.

@@ -1,0 +1,28 @@
+{
+  "note": "EXAMPLE TEMPLATE. Every subject and section below is placeholder copy for demonstration. Replace it with real, approved copy before setting settings.drafting_enabled to true.",
+  "version": "example-1",
+  "subjects": [
+    { "id": "intro", "text": "A quick idea for {company_name}" },
+    { "id": "short", "text": "{company_name}, one idea for your store" }
+  ],
+  "sections": [
+    { "id": "greeting", "text": "Hi {contact_name|there}," },
+    {
+      "id": "hook",
+      "ai": true,
+      "instruction": "Write one short, factual sentence (maximum 30 words) about {company_name} in {country|their market}, using only the lead facts and evidence provided. Do not promise results, do not use links, and write in {language|English}.",
+      "fallback": "I had a quick look at {company_name} and noticed something worth sharing."
+    },
+    {
+      "id": "offer",
+      "text": "We help {niche|independent stores} turn more visitors into customers. If that is useful, I can share a short example."
+    },
+    { "id": "signoff", "text": "Best regards" }
+  ],
+  "rules": {
+    "max_words": 120,
+    "forbidden_phrases": ["guarantee", "risk-free", "act now", "100%"],
+    "allow_links": false,
+    "language": { "mode": "match_lead" }
+  }
+}
