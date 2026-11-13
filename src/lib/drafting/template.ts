@@ -154,7 +154,7 @@ export function loadEmailTemplate(
   const label = relative(process.cwd(), filePath) || filePath;
   let text: string;
   try {
-    text = readFileSync(filePath, "utf8");
+    text = readFileSync(/*turbopackIgnore: true*/ filePath, "utf8");
   } catch {
     throw new TemplateValidationError(`${label} could not be read.`);
   }

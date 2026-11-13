@@ -20,8 +20,8 @@ type LeadListItem = {
   updated_at: string;
   returned_from_drafts: boolean;
 };
-type Filters = { status: "PENDING" | "REJECTED" | "ALL"; agent: string; tag: string; country: string; search: string; email: "ALL" | "MISSING"; returned: boolean };
-type QueueState = "PENDING" | "MISSING" | "RETURNED" | "REJECTED" | "ALL";
+type Filters = { status: "PENDING" | "APPROVED" | "REJECTED" | "ALL"; agent: string; tag: string; country: string; search: string; email: "ALL" | "MISSING"; returned: boolean };
+type QueueState = "PENDING" | "MISSING" | "RETURNED" | "APPROVED" | "REJECTED" | "ALL";
 
 const emptyCopy: Record<QueueState, { title: string; description: string }> = {
   PENDING: {
@@ -36,6 +36,10 @@ const emptyCopy: Record<QueueState, { title: string; description: string }> = {
     title: "No returned leads",
     description: "No draft has been sent back for verification. Leads returned from Drafts appear here.",
   },
+  APPROVED: {
+    title: "No approved leads in flight",
+    description: "Approved leads remain here until they are sent. They may have been sent or archived.",
+  },
   REJECTED: {
     title: "No rejected leads",
     description: "Nothing has been rejected yet. Rejected leads can be reopened from here.",
@@ -49,11 +53,6 @@ const emptyCopy: Record<QueueState, { title: string; description: string }> = {
 function hasValidEmail(email: string | null): boolean {
   return Boolean(email && email === email.toLowerCase() && /^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/.test(email));
 }
-
-const updatedDateFormat = new Intl.DateTimeFormat("en-GB", {
-  dateStyle: "medium",
-  timeZone: "UTC",
-});
 
 export default function LeadQueueTable({
   leads: initialLeads,
@@ -151,10 +150,13 @@ export default function LeadQueueTable({
         setRequestId("");
       }, 0);
     }
+    const startTimer = startRef.current;
+    const slowTimer = slowRef.current;
+    const errorTimer = errorRef.current;
     return () => {
-      if (startRef.current) clearTimeout(startRef.current);
-      if (slowRef.current) clearTimeout(slowRef.current);
-      if (errorRef.current) clearTimeout(errorRef.current);
+      if (startTimer) clearTimeout(startTimer);
+      if (slowTimer) clearTimeout(slowTimer);
+      if (errorTimer) clearTimeout(errorTimer);
     };
   }, [loading]);
 
@@ -289,8 +291,10 @@ export default function LeadQueueTable({
             returned: String(filters.returned),
             lead: lead.id,
           });
-          const statusChip = lead.human_approval === "REJECTED"
-            ? { className: "badge badge-rejected", text: "Rejected" }
+          const statusChip = lead.human_approval === "APPROVED"
+            ? { className: "badge badge-approved", text: "Approved" }
+            : lead.human_approval === "REJECTED"
+              ? { className: "badge badge-rejected", text: "Rejected" }
             : lead.returned_from_drafts
               ? { className: "badge badge-returned", text: "↩ Returned from drafts" }
               : emailMissing

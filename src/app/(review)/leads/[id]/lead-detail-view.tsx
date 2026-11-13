@@ -1,34 +1,51 @@
+"use client";
+
+import Link from "next/link";
 import type { JSX, SyntheticEvent } from "react";
 import { useRef, useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { z } from "zod";
-import { notFound } from "next/navigation";
-
-import { query } from "@/lib/server/db";
-import { writeAudit } from "@/lib/server/auth/audit";
-import { getApiSessionUser } from "@/lib/server/http/api-auth";
-import { isSameOriginRequest } from "@/lib/server/auth/http";
-import { withTransaction } from "@/lib/server/db";
 import { isValidReviewEmail } from "@/lib/server/review/email";
 
-import { CrossIcon, CheckIcon, ExternalIcon, SearchIcon } from "@/components/icons";
 import { Spinner } from "@/components/spinner";
 
-const STEPS = ["Checklist", "Customer details", "Draft review"] as const;
-
-function text(value: unknown): string {
-  return typeof value === "string" ? value.trim() : "";
+function CheckIcon() {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <path d="M3.5 8.5 6.5 11.5 12.5 4.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
+function CrossIcon() {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <path d="M4.5 4.5l7 7m0-7-7 7" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function ExternalIcon() {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <path d="M6.5 3.5h6v6M12.5 3.5 7 9M11 10.5v2h-8v-8h2" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function SearchIcon() {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <circle cx="7" cy="7" r="4.2" stroke="currentColor" strokeWidth="1.3" />
+      <path d="m10.2 10.2 2.8 2.8" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+    </svg>
+  );
 }
 
 function safeUrl(value: unknown): string | undefined {
-  const text = text(value);
-  if (!text) return undefined;
+  const trimmed = typeof value === "string" ? value.trim() : "";
+  if (!trimmed) return undefined;
   try {
-    const url = new URL(text);
+    const url = new URL(trimmed);
     if (url.protocol === "http:" || url.protocol === "https:") return url.href;
   } catch {}
   return undefined;
@@ -46,7 +63,9 @@ function validTimezone(value: unknown): boolean {
   return Boolean(value) && typeof value === "string" && /^[A-Za-z_/]+-[A-Za-z_0-9]+/i.test(value);
 }
 
-type LeadDetailData = {
+export type LeadActivity = { action: string; at: string; name: string | null };
+
+export type LeadDetailData = {
   id: string;
   domain: string;
   site_url: string | null;
@@ -66,12 +85,13 @@ type LeadDetailData = {
   contact_form_url: string | null;
   socials: unknown;
   antispam_tag: string;
-  anti_spam_regime: string;
-  antispam_note: string;
-  is_shopify: boolean;
-  has_mobile_app: boolean;
+  anti_spam_regime: string | null;
+  antispam_note: string | null;
+  is_shopify: boolean | null;
+  has_mobile_app: boolean | null;
+  app_signals: unknown;
   evidence: unknown;
-  confidence: unknown;
+  confidence: number | null;
   agent_approval: string;
   agent_reason: string | null;
   human_approval: string;
@@ -131,6 +151,12 @@ export default function LeadDetailView({ lead, activity, embedded = false, backH
     { key: "agent", state: lead.agent_approval === "VERIFIED" ? "ok" : "missing", label: "Agent verdict verified", hint: lead.agent_approval === "VERIFIED" ? undefined : `Agent verdict is ${lead.agent_approval.replaceAll("_", " ").toLowerCase()}`, href: undefined },
   ] as const;
 
+  const openAction = useCallback((nextAction: NonNullable<typeof action>) => {
+    setAction(nextAction);
+    setNote("");
+    dialogRef.current?.showModal();
+  }, []);
+
   useEffect(() => {
     const down = (e: globalThis.KeyboardEvent) => {
       if ((e.key === "a" && canDecide && !readOnly) || (e.key === "e" && !readOnly && !fullData) || (e.key === "r" && canDecide && !approveBlocked && !readOnly)) {
@@ -141,7 +167,7 @@ export default function LeadDetailView({ lead, activity, embedded = false, backH
     };
     document.addEventListener("keydown", down);
     return () => document.removeEventListener("keydown", down);
-  }, [canDecide, readOnly, fullData, approveBlocked]);
+  }, [canDecide, readOnly, fullData, approveBlocked, openAction]);
 
   async function save(e: SyntheticEvent) {
     e.preventDefault();
@@ -207,23 +233,7 @@ export default function LeadDetailView({ lead, activity, embedded = false, backH
     }
   }
 
-  function openAction(nextAction: NonNullable<typeof action>) {
-    setAction(nextAction);
-    setNote("");
-    dialogRef.current?.showModal();
-  }
-
-  const evidence = isRecord(lead.evidence) ? lead.evidence : {};
-  const shopify = isRecord(evidence.shopify) ? evidence.shopify : null;
-  const noApp = isRecord(evidence.no_app) ? evidence.no_app : null;
-  const shopifySignal = text(shopify?.signal) ?? text(shopify?.url);
-  const noAppDetail = text(noApp?.pages_checked)
-    ? `${noApp?.pages_checked} pages checked`
-    : text(noApp?.signal);
-
   const siteHref = safeUrl(lead.site_url);
-  const contactHref = safeUrl(lead.contact_page_url);
-  const formHref = safeUrl(lead.contact_form_url);
 
   return (
     <>
@@ -543,21 +553,14 @@ export default function LeadDetailView({ lead, activity, embedded = false, backH
 
           {!fullData && (
             <div className="detail-sidebar">
-              <button type="button" className="text-link" onClick={() => setFullData(true)}>
-                <SearchIcon /> View full data
-              </button>
-           찰">
+              <section className="panel">
                 <div>
                   <h3>{lead.domain}</h3>
                   <p>{lead.company_name}</p>
                   <p>{lead.email}</p>
                   <p>{lead.country}</p>
                 </div>
-              </button>
-              <aside className="notice">
-                <strong>Footer is added automatically when sent.</strong>
-                <p>Only subject and body from the draft appear below.</p>
-              </aside>
+              </section>
             </div>
           )}
           {fullData && (

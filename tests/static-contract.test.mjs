@@ -56,7 +56,6 @@ test("lead and draft revoke paths block after sending starts", async () => {
 
 test("All queue applies filters before stable keyset pagination and does not mutate leads", async () => {
   const queue = await readFile(path.join(root, "src/lib/server/review/all-queue.ts"), "utf8");
-  const component = await readFile(path.join(root, "src/app/(review)/all/all-queue.tsx"), "utf8");
   assert.match(queue, /updated_at < \$8 OR \(l\.updated_at=\$8 AND l\.id > \$9::uuid\)/);
   assert.match(queue, /ORDER BY l\.updated_at DESC, l\.id ASC/);
   assert.match(queue, /count\(\*\) OVER\(\)::int AS total_count/);

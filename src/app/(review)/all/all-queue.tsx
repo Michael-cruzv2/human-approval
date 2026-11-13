@@ -158,10 +158,13 @@ export default function AllQueue({
         setRequestId("");
       }, 0);
     }
+    const startTimer = startRef.current;
+    const slowTimer = slowRef.current;
+    const errorTimer = errorRef.current;
     return () => {
-      if (startRef.current) clearTimeout(startRef.current);
-      if (slowRef.current) clearTimeout(slowRef.current);
-      if (errorRef.current) clearTimeout(errorRef.current);
+      if (startTimer) clearTimeout(startTimer);
+      if (slowTimer) clearTimeout(slowTimer);
+      if (errorTimer) clearTimeout(errorTimer);
     };
   }, [loading]);
 
