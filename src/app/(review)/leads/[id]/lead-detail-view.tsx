@@ -171,33 +171,38 @@ export default function LeadDetailView({ lead, activity, embedded = false, backH
 
   async function save(e: SyntheticEvent) {
     e.preventDefault();
-    if (!dirty || !canDecide) return;
+    if (!dirty || readOnly) return;
     setBusy(true);
     setMessage("");
-
-    const form = new FormData();
-    for (const key of Object.keys(values)) {
-      const k = key as keyof typeof values;
-      if (values[k] !== savedValues[k]) form.append(k, values[k]);
+    const editableKeys = ["company_name", "contact_name", "email", "email_type", "phone", "country", "language", "timezone", "niche"] as const;
+    const changes = Object.fromEntries(editableKeys
+      .filter((key) => values[key] !== savedValues[key])
+      .map((key) => [key, values[key]]));
+    try {
+      const response = await fetch(`/api/leads/${lead.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(changes),
+      });
+      const result = (await response.json()) as { message?: string; approvalReset?: boolean };
+      if (!response.ok) {
+        const error = result.message ?? "Could not save changes.";
+        setMessage(error);
+        window.alert(error);
+        return;
+      }
+      const success = result.approvalReset
+        ? "Changes saved. Changing the email reset approval to Pending."
+        : "Changes saved.";
+      setMessage(success);
+      router.refresh();
+    } catch {
+      const error = "Could not save changes. Check your connection and try again.";
+      setMessage(error);
+      window.alert(error);
+    } finally {
+      setBusy(false);
     }
-
-    if (lead.human_approval === "APPROVED" && values.email !== lead.email) {
-      form.append("email_reset_approval", "true");
-    }
-
-    const response = await fetch(`/api/leads/${lead.id}/actions`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "edit", values: Object.fromEntries(form), note: "" }),
-    });
-    const result = (await response.json()) as { message?: string };
-    if (!response.ok) {
-      setMessage(result.message ?? "Could not save changes.");
-      return;
-    }
-    setMessage("Changes saved.");
-    setValues(savedValues);
-    router.refresh();
   }
 
   async function confirmAction() {
@@ -397,13 +402,12 @@ export default function LeadDetailView({ lead, activity, embedded = false, backH
                     />
                   </label>
                   <label className="field" htmlFor="lead-address">
-                    Address
+                    Address <span className="muted">(not editable)</span>
                     <input
                       id="lead-address"
                       value={values.address}
                       maxLength={500}
-                      disabled={readOnly}
-                      onChange={(e) => setValues((c) => ({ ...c, address: e.target.value }))}
+                      disabled
                     />
                   </label>
                 </div>
@@ -453,23 +457,21 @@ export default function LeadDetailView({ lead, activity, embedded = false, backH
                 </div>
                 <div className="row">
                   <label className="field" htmlFor="lead-contact_page_url">
-                    Contact page URL
+                    Contact page URL <span className="muted">(not editable)</span>
                     <input
                       id="lead-contact_page_url"
                       value={values.contact_page_url}
                       maxLength={500}
-                      disabled={readOnly}
-                      onChange={(e) => setValues((c) => ({ ...c, contact_page_url: e.target.value }))}
+                      disabled
                     />
                   </label>
                   <label className="field" htmlFor="lead-contact_form_url">
-                    Contact form URL
+                    Contact form URL <span className="muted">(not editable)</span>
                     <input
                       id="lead-contact_form_url"
                       value={values.contact_form_url}
                       maxLength={500}
-                      disabled={readOnly}
-                      onChange={(e) => setValues((c) => ({ ...c, contact_form_url: e.target.value }))}
+                      disabled
                     />
                   </label>
                 </div>
