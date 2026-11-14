@@ -159,6 +159,11 @@ export default function LeadDetailView({ lead, activity, embedded = false, backH
 
   useEffect(() => {
     const down = (e: globalThis.KeyboardEvent) => {
+      const target = e.target;
+      if (target instanceof HTMLElement && (
+        target.isContentEditable ||
+        target.closest("input, textarea, select, [contenteditable='true'], [role='textbox']")
+      )) return;
       if ((e.key === "a" && canDecide && !readOnly) || (e.key === "e" && !readOnly && !fullData) || (e.key === "r" && canDecide && !approveBlocked && !readOnly)) {
         if (e.key === "a" && canDecide && !readOnly) { openAction("approve"); e.preventDefault(); }
         if (e.key === "r" && canDecide && !approveBlocked && !readOnly) { openAction("reject"); e.preventDefault(); }
@@ -222,6 +227,9 @@ export default function LeadDetailView({ lead, activity, embedded = false, backH
         return;
       }
       if (action === "approve") {
+        dialogRef.current?.close();
+        setAction(null);
+        setNote("");
         const separator = backHref.includes("?") ? "&" : "?";
         router.push(`${backHref}${separator}approved=${encodeURIComponent(lead.id)}`);
         return;
