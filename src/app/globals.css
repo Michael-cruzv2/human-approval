@@ -62,6 +62,10 @@ html {
   -webkit-text-size-adjust: 100%;
 }
 
+html:has(.review-shell) {
+  overflow: hidden;
+}
+
 body {
   margin: 0;
   min-height: 100vh;
@@ -72,6 +76,12 @@ body {
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+}
+
+/* Keep the authenticated app shell fixed to the viewport. The shell owns its
+   content scroll; document scrolling here creates a blank strip below it. */
+body:has(.review-shell) {
+  overflow: hidden;
 }
 
 h1,
@@ -485,6 +495,10 @@ input[type="file"]::file-selector-button:hover {
   font-weight: 500;
 }
 
+.nav-count-loading {
+  opacity: 0.55;
+}
+
 .tab-leads .nav-count {
   background: var(--leads-soft);
   color: var(--leads-ink);
@@ -724,7 +738,10 @@ details > summary {
   display: grid;
   grid-template-columns: var(--queue) minmax(0, 1fr);
   align-items: stretch;
-  height: 100%;
+  /* The negative margins cancel .review-main's padding visually, but a
+     percentage height resolves against its padded content box. Add that
+     padding back so the queue and detail panes reach the shell's bottom. */
+  height: calc(100% + var(--main-pad) + var(--main-pad));
   min-height: 0;
   margin: calc(-1 * var(--main-pad));
   overflow: hidden;
@@ -2643,6 +2660,14 @@ pre {
 
   /* Phones use one normal document scroll again; the queue and detail are
      separate screens rather than two fixed panes. */
+  body:has(.review-shell) {
+    overflow: visible;
+  }
+
+  html:has(.review-shell) {
+    overflow: visible;
+  }
+
   .review-shell {
     display: block;
     height: auto;

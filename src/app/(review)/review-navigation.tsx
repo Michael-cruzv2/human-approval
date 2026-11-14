@@ -6,8 +6,8 @@ import { usePathname } from "next/navigation";
 type Props = {
   userName: string;
   role: string;
-  leadCount: number;
-  draftCount: number;
+  leadCount: number | null;
+  draftCount: number | null;
   children: React.ReactNode;
 };
 
@@ -57,7 +57,11 @@ export default function ReviewNavigation({
               aria-current={current ? "page" : undefined}
             >
               {label}
-              {value !== null && <span className="nav-count">{value}</span>}
+              {value !== null ? (
+                <span className="nav-count">{value}</span>
+              ) : count ? (
+                <span className="nav-count nav-count-loading" aria-hidden="true" />
+              ) : null}
             </Link>
           );
         })}

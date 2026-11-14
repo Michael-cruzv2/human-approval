@@ -254,7 +254,7 @@ export default function LeadDetailView({ lead, activity, embedded = false, backH
           <div><dt>Note</dt><dd>{note || "—"}</dd></div>
         </dl>
         <div className="dialog-actions">
-          <button className="btn btn-ghost" type="button" disabled={busy} onClick={() => { setAction(null); setNote(""); }}>
+          <button className="btn btn-ghost" type="button" disabled={busy} onClick={() => { dialogRef.current?.close(); setAction(null); setNote(""); }}>
             Cancel
           </button>
           <button className={`btn ${action === "approve" || action === "reject" || action === "archive" ? "btn-leads" : action === "revoke" ? "btn-stop" : "btn-ghost"}${busy ? " busy" : ""}`} type="button" disabled={busy} onClick={confirmAction}>
