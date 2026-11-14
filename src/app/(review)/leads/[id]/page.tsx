@@ -38,7 +38,7 @@ export async function LeadDetailContent({ id, embedded = false, backHref = "/lea
       WHERE a.entity = 'lead' AND a.entity_id = $1
       ORDER BY a.created_at DESC LIMIT 25`, [id],
   );
-  return <LeadDetailView lead={lead} activity={activity.rows} embedded={embedded} backHref={backHref} />;
+  return <LeadDetailView key={lead.id} lead={lead} activity={activity.rows} embedded={embedded} backHref={backHref} />;
 }
 
 export default async function LeadDetailPage({ params }: { params: Promise<{ id: string }> }) {

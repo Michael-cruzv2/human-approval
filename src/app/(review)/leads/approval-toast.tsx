@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 export default function ApprovalToast({
   leadId,
@@ -13,6 +13,12 @@ export default function ApprovalToast({
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [showUndo, setShowUndo] = useState(true);
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => setShowUndo(false), 2000);
+    return () => window.clearTimeout(timeout);
+  }, []);
 
   async function undo() {
     setBusy(true);
@@ -43,7 +49,7 @@ export default function ApprovalToast({
         <span>The lead stays in Leads and appears in Drafts; it leaves Leads once the email is sent.</span>
         {error && <span className="field-error" role="alert">{error}</span>}
       </div>
-      <button type="button" disabled={busy} onClick={undo}>{busy ? "Undoing…" : "Undo"}</button>
+      {showUndo && <button type="button" disabled={busy} onClick={undo}>{busy ? "Undoing…" : "Undo"}</button>}
     </aside>
   );
 }

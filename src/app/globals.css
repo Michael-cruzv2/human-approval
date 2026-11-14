@@ -1108,6 +1108,7 @@ details > summary {
   scrollbar-gutter: stable;
   scroll-padding-block: 1.5rem 5.5rem;
   padding: 1.5rem clamp(1rem, 2vw, 1.75rem) 0;
+  padding-right: clamp(1.5rem, 3vw, 3rem);
 }
 
 .lead-detail-content,
