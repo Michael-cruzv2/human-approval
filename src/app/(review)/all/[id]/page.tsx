@@ -117,26 +117,26 @@ export default async function AllLeadDetail({
       </header>
       <div className="action-row">
         {isPendingOrRejected && (
-          <Link className="text-link-button" href={`/leads/${lead.id}`}>
+          <a className="text-link-button" href={`/leads/${lead.id}`}>
             Open in Leads
-          </Link>
+          </a>
         )}
         {!lead.archived &&
           lead.human_approval === "APPROVED" &&
           (lead.draft_id ? (
-            <Link
+            <a
               className="text-link-button"
               href={`/drafts/${lead.draft_id}`}
             >
               Open in Drafts
-            </Link>
+            </a>
           ) : (
-            <Link
+            <a
               className="text-link-button"
               href="/drafts?view=awaiting-draft"
             >
               Open in Drafts
-            </Link>
+            </a>
           ))}
       </div>
       <section className="panel">
